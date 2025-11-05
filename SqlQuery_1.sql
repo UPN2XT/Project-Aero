@@ -219,6 +219,7 @@ WHERE @Employee_ID = e.employee_ID
 SET @final_salary = @base_salary+(@years_exp_perc/100)*@years_exp*@base_salary
 UPDATE Employee
     SET e.salary = @final_salary
+	where @Employee_ID = e.employee_id
 GO
 
 CREATE PROC Role_Name_Change/*this is just gut feeling, not sure if using procedures for these is the correct approach or not*/
