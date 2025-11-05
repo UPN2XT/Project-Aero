@@ -4,6 +4,8 @@ GO
 USE University_HR_ManagementSystem_Team_97
 GO
 
+CREATE PROC createAllTables
+AS
 CREATE TABLE Department(
 	name VARCHAR(50) PRIMARY KEY CHECK (name IN ('MET', 'IET', 'HR', 'Medical','civil','BI','Management','Law','Pharmacy','Dentistry')),
 	building_location VARCHAR(50),
@@ -200,6 +202,98 @@ CREATE TABLE Employee_Approve_Leave(
 	FOREIGN KEY (Emp1_ID) REFERENCES Employee(employee_ID),
 	FOREIGN KEY (Leave_ID) REFERENCES Leave(request_ID),
 );
+GO
+
+CREATE PROC CalculateEmployeeSalary/*not sure if we need to update in case employee changes roles or gets a salary change*/
+@Employee_ID int
+AS
+DECLARE 
+@base_salary DECIMAL(10,2),
+@years_exp int,
+@years_exp_perc DECIMAL(5,2),
+@final_salary DECIMAL(10,2)
+SELECT @base_salary = r.base_salary, @years_exp=e.years_of_experience,@years_exp_perc = r.percentage_YOE FROM Employee e
+JOIN Employee_Role er ON er.emp_ID = e.employee_ID
+JOIN Role r ON r.role_name =er.role_name
+WHERE @Employee_ID = e.employee_ID
+SET @final_salary = @base_salary+(@years_exp_perc/100)*@years_exp*@base_salary
+UPDATE Employee
+    SET e.salary = @final_salary
+GO
+
+CREATE PROC Role_Name_Change/*this is just gut feeling, not sure if using procedures for these is the correct approach or not*/
+AS
+DECLARE
+@role_name VARCHAR(50),
+@dep_name VARCHAR(50)
+select @role_name = r.role_name,@dep_name = rd.department_name FROM Role r
+JOIN Role_existsIn_Department rd ON r.role_name = rd.role_name
+WHERE r.role_name = 'HR Representative'
+SET @role_name = r.role_name+'_'+rd.department_name
+UPDATE Role
+	SET r.role_name = @role_name
+
+GO
+
+CREATE PROC dropAllTables
+AS
+DROP TABLE Employee_Approve_Leave
+DROP TABLE Employee_Replace_Employee
+DROP TABLE Performance
+DROP TABLE Deduction
+DROP TABLE Attendance
+DROP TABLE Payroll
+DROP TABLE Document
+DROP TABLE Compensation_Leave
+DROP TABLE Unpaid_Leave
+DROP TABLE Medical_Leave
+DROP TABLE Accidental_Leave
+DROP TABLE Annual_Leave
+DROP TABLE Medical_Leave
+DROP TABLE Leave
+DROP TABLE Role_existsIn_Department
+DROP TABLE Employee_Role
+DROP TABLE Role
+DROP TABLE Employee_Phone
+DROP TABLE Employee
+DROP TABLE Department
+GO
+
+CREATE PROC dropAllProceduresFunctionsViews/*still needs to add more procs and views as we continue*/
+AS
+DROP PROC dropAllTables
+DROP PROC createAllTables
+DROP VIEW allEmploteeProfiles
+DROP VIEW NoEmployeeDept
+DROP VIEW allPerformance
+DROP VIEW allRejectedMedicals
+DROP VIEW allEmployeeAttendance
+DROP PROC clearAllTables
+DROP PROC CalculateEmployeeSalary
+GO
+
+CREATE PROC  clearAllTables
+AS
+TRUNCATE TABLE Employee_Approve_Leave
+TRUNCATE TABLE Employee_Replace_Employee
+TRUNCATE TABLE Performance
+TRUNCATE TABLE Deduction
+TRUNCATE TABLE Attendance
+TRUNCATE TABLE Payroll
+TRUNCATE TABLE Document
+TRUNCATE TABLE Compensation_Leave
+TRUNCATE TABLE Unpaid_Leave
+TRUNCATE TABLE Medical_Leave
+TRUNCATE TABLE Accidental_Leave
+TRUNCATE TABLE Annual_Leave
+TRUNCATE TABLE Medical_Leave
+TRUNCATE TABLE Leave
+TRUNCATE TABLE Role_existsIn_Department
+TRUNCATE TABLE Employee_Role
+TRUNCATE TABLE Role
+TRUNCATE TABLE Employee_Phone
+TRUNCATE TABLE Employee
+TRUNCATE TABLE Department
 GO
 
 CREATE VIEW allEmployeeProfiles
