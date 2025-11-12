@@ -16,7 +16,7 @@ CREATE PROCEDURE HR_approval_an_acc
 AS
 BEGIN
     IF @request_ID IN (								
-														                SELECT request_id
+														                                SELECT request_id
         FROM Accidental_Leave
     UNION
         SELECT request_id
@@ -120,14 +120,79 @@ INSERT INTO Employee_Approve_Leave
 END
 GO
 
--- 3.4 (e, f, g) TODO
+-- 3.4 (g) TODO -- as2 note: g requires recursion or a more complex way of inserion that current ones or a way to devide the leaves according to month
 
+-- as2: the query is way too complex and I am not sure if its cully correct 
+CREATE PROCEDURE Deduction_hours
+    @employee_ID int
+AS
+BEGIN
+    DECLARE @rate DECIMAL(10,2);
+    SET @rate = Get_Salary(@employee_id) / 176;
+    WITH
+        q1
+        AS
+        (
+            SELECT SUM(duration) AS dur,
+                MONTH(Attendance.date) AS month,
+                YEAR(Attendance.date) AS year
+            FROM attencence
+            GROUP BY 
+            MONTH(Attendance.date),
+            YEAR(Attendance.date)
+            HAVING hours < 176
+                AND NOT EXISTS (
+                SELECT *
+                FROM Deduction d
+                    INNER JOIN Attendance a ON a.attendance_ID = d.attendance_ID
+                WHERE Deduction.emp_id = @employee_id
+                    AND Month(a.date) = month AND YEAR(a.date) = YEAR
+                    AND d.type = 'Missing hours'
+            )
+        )
+    INSERT INTO Deduction
+        (emp_ID, date, amount, attendance_ID, type)
+    SELECT
+        @employee_id,
+        '01-01-2001', -- placeholder becuase i am not sure what the date should be exactly
+        ((176-dur) * @rate),
+        (
+                SELECT TOP 1
+            ae.attendance_id
+        FROM Attendance ae
+        WHERE YEAR(ae.date) = year AND MONTH(ae.date) = month
+            AND ae.duration < 8
+        ORDER BY ae.date
+            ),
+        'Missing hours'
+    FROM q1
+
+END
+GO
+
+-- as2: not 100% sure about this
 CREATE PROCEDURE Deduction_days
     @employee_ID int
 AS
 BEGIN
+    DECLARE @amount DECIMAL(10,2);
+    SET @amount = Get_Salary(@employee_id) / 22;
     INSERT INTO Deduction
-        (emp_ID, )
+        (emp_ID, date, amount, attendance_ID, type)
+    SELECT
+        @employee_id,
+        Attendance.date,
+        @amount,
+        Attendance.attendance_ID,
+        'Missing days'
+    FROM Attendance
+    WHERE Attendance.status = 'Absent'
+        AND Attendance.attendance_ID NOT IN (
+            SELECT attendance_ID
+        FROM Deduction
+        WHERE Deduction.emp_id = @employee_ID
+        )
+
 END
 GO
 /*

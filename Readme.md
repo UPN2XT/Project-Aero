@@ -1,8 +1,12 @@
-# Updates
+## Updates
 
 please before commiting add what you changed here
 
-- ## Current commit:
+- ### as2 (Current):
+
+  - updated many things in 2.3 and 2.4 (marked them with comments with as2 in them)
+
+- ### as1:
   - devided files into thier repective sections for ease of modification and access will combine them latter again
   - parts of 2.4 & 2.5 where add however we are not 100% sure on if they work correctly or work at all
   - there are syntax errors in 2.5

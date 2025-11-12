@@ -30,7 +30,6 @@ FROM Performance
 WHERE emp_ID = @employee_ID
     AND semester = @semester
 )
-END
 GO
 
 
