@@ -1,3 +1,6 @@
+
+CREATE ROLE admin --assumed we will need something like this for admin.employee and hr
+GO
 CREATE PROCEDURE Update_Status_Doc
 AS
 UPDATE Document
@@ -101,16 +104,17 @@ CREATE PROCEDURE  Add_Holiday
 AS
 INSERT INTO Holiday
     (name,from_date,to_date)
-VALUES(@holiday_name, @from_date, to_date);
+VALUES(@holiday_name, @from_date, @to_date);/*to date was just missing @ before it here*/
 GO
 
-/*should be working but we will still need to recheck it*/
+/*should be working but we will still need to recheck it
+11-14 still has the error of invalid column name for employment_status and employee_ID*/
 CREATE PROCEDURE Intitiate_Attendance
 AS
 BEGIN
     DECLARE @CurrentDate DATE = CAST(GETDATE() AS DATE);
     INSERT INTO Attendance
-        (date, status, emp_ID)
+        (date, status, emp_ID)-- 11/14 shouldnt date be changed to @CurrentDate and status to be written as [status]?
     SELECT
         @CurrentDate,
         'Absent',
@@ -174,16 +178,43 @@ where @Employee_id = Employee.employee_ID)
 GO
 
 -- as2 note: this is wrong and i am too lazy to fix it whomever sees this u need to get all leaves that are approved for a given employee then remove them you will need to union all leave tables for this
+--changed it to like what you said omar BUT i added join with the actual leave table and filtered them with status = approved
 CREATE PROCEDURE  Remove_Approved_Leaves
     @Employee_id int
 AS
-DELETE FROM Attendance
-WHERE EXISTS(
-SELECT final_approval_status
-from leave l
-    INNER JOIN Employee_Approve_Leave ea ON ea.Leave_ID = l.request_ID
-    INNER JOIN Employee e ON e.employee_ID = ea.Emp1_ID
-where Attendance.[date] >=l.start_date AND Attendance.[date]<=end_date)
+WITH ApprovedLeave AS (SELECT request_id,l.start_date,l.end_date
+            FROM LEAVE l
+        INNER JOIN (
+            SELECT request_id,emp_ID
+            FROM Annual_Leave 
+            WHERE emp_id = @Employee_ID
+        UNION ALL
+            SELECT request_id, emp_id
+            FROM Accidental_Leave
+            WHERE emp_id = @Employee_ID
+        UNION ALL
+            SELECT request_id, emp_id
+            FROM Medical_Leave
+            WHERE emp_id = @Employee_ID
+        UNION ALL
+            SELECT request_id, emp_id
+            FROM Unpaid_Leave
+            WHERE emp_id = @Employee_ID
+        UNION ALL
+            SELECT request_id, emp_id
+            FROM Compensation_Leave
+            WHERE emp_id = @Employee_ID
+            ) AS subleaves
+            ON l.request_id=subleaves.request_id
+            WHERE [status] ='Approved'
+    )
+    DELETE FROM Attendance
+    WHERE emp_ID = @Employee_id 
+    AND 
+    EXISTS (SELECT * FROM Approvedleave
+    WHERE Attendance.[date] BETWEEN al.start_date AND al.end_date)
+
+
 GO
 
 -- end of as2 check by omar ahmed

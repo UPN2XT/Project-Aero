@@ -1,7 +1,10 @@
 ## Updates
 
 please before commiting add what you changed here
-
+- ### update on 11/14	-fixed errors in 2.4
+	- added comments on unfinished procedures and finished ones so carefully read them
+	- continued on 2.5
+	- fixed the mistake in 2.3 but still missing the last procedure
 - ### as2 (Current):
 
   - updated many things in 2.3 and 2.4 (marked them with comments with as2 in them)

@@ -1,4 +1,6 @@
-CREATE FUNCTION HRLoginValidation(@Employee_ID int, @Password varchar(50))
+CREATE ROLE HR
+GO
+CREATE FUNCTION HRLoginValidation(@Employee_ID int, @Password varchar(50))--this has error invlaid column name for employee_ID and password
 RETURNS bit
 BEGIN
     DECLARE @ISVALID BIT = 0;
@@ -10,13 +12,13 @@ BEGIN
 END
 GO
 
-CREATE PROCEDURE HR_approval_an_acc
+CREATE PROCEDURE HR_approval_an_acc--11/14 dont we need to check if the employee is full time or not?
     @request_ID int,
     @HR_ID int
 AS
 BEGIN
     IF @request_ID IN (								
-														                                SELECT request_id
+        SELECT request_id
         FROM Accidental_Leave
     UNION
         SELECT request_id
@@ -77,8 +79,11 @@ INSERT INTO Employee_Approve_Leave
             WHERE Unpaid_Leave.emp_ID IN (
 					SELECT emp_id
                 FROM Unpaid_Leave u
+                INNER JOIN Employee e on u.emp_ID = e.Employee_ID
                 WHERE u.request_id = @request_id
-				) AND YEAR(CURRENT_DATE) = YEAR(Leave.start_date) -- Need to check if max unpaid leave is in the same year or not
+                AND
+                e.type_of_contract = 'Full time'--11/14 added this part since part-time employees are not eligible so assuming they can still request one, it should be rejected
+				) AND YEAR(GETDATE()) = YEAR(Leave.start_date) -- Need to check if max unpaid leave is in the same year or not
 			) THEN 'Approved'
 			ELSE 'Rejected'
 			END
@@ -147,14 +152,15 @@ BEGIN
                     INNER JOIN Attendance a ON a.attendance_ID = d.attendance_ID
                 WHERE Deduction.emp_id = @employee_id
                     AND Month(a.date) = month AND YEAR(a.date) = YEAR
-                    AND d.type = 'Missing hours'
+                    AND d.type = 'Missing hours'--why was this made? dont we need to find the first day which has less than 8 hours?
             )
         )
     INSERT INTO Deduction
         (emp_ID, date, amount, attendance_ID, type)
     SELECT
         @employee_id,
-        '01-01-2001', -- placeholder becuase i am not sure what the date should be exactly
+        '01-01-2001', /*placeholder becuase i am not sure what the date should be exactly
+                        11-14 part of me belives that it should be related to the first day they get a deduction on */
         ((176-dur) * @rate),
         (
                 SELECT TOP 1
@@ -202,18 +208,18 @@ GO
 
 */
 
-CREATE FUNCTION Get_Salary(@employee_id INT)
+CREATE FUNCTION Get_Salary(@employee_id INT)--invalid column name here with employee_ID
 RETURNS DECIMAL(10,2)
 BEGIN
     DECLARE @Salary DECIMAL(10,2);
     SELECT @Salary = e.salary
     FROM Employee e
-    WHERE e.employee_id = @employee_id;
+    WHERE e.employee_ID = @employee_id;
     RETURN @Salary;
 END
 GO
 
-CREATE FUNCTION Bonus_amount(@employee_ID INT)
+CREATE FUNCTION Bonus_amount(@employee_ID INT)--invalid column name here with employee_ID
 RETURNS DECIMAL(10,2)
 BEGIN
     DECLARE @TotalAmount DECIMAL(10, 2);
@@ -229,7 +235,7 @@ BEGIN
 
     SELECT @Salary = e.salary
     FROM Employee e
-    WHERE e.employee_id = @employee_id;
+    WHERE e.employee_ID = @employee_id;
 
     SET @BaseRate = @Salary / 176;
 
@@ -268,7 +274,7 @@ BEGIN
         (payment_date, final_salary_amount, from_date, to_date, bonus_amount, deductions_amount)
     VALUES
         (
-            CURRENT_DATE, (Get_Salary(@Employee_id) + @Bouns_amount_val - @Deduction_amount_val),
+            GETDATE(), (Get_Salary(@Employee_id) + @Bouns_amount_val - @Deduction_amount_val),
             @From,
             @To,
             @Bouns_amount_val,

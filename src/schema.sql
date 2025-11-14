@@ -37,10 +37,11 @@ CREATE TABLE Employee
     FOREIGN KEY (dept_name) REFERENCES Department(name),
 );
 
-CREATE TABLE Employee_Phone
+CREATE TABLE Employee_Phone--11/14 fixed primary key
 (
-    emp_ID INT PRIMARY KEY,
-    phone_num CHAR(11) PRIMARY KEY,
+    emp_ID INT,
+    phone_num CHAR(11),
+    PRIMARY KEY(emp_ID,phone_num),
     FOREIGN KEY (emp_ID) REFERENCES Employee(employee_ID),
 );
 
@@ -59,16 +60,18 @@ CREATE TABLE Role
 
 CREATE TABLE Employee_Role
 (
-    emp_ID INT PRIMARY KEY,
-    role_name VARCHAR(50) PRIMARY KEY,
+    emp_ID INT,
+    role_name VARCHAR(50),
+    PRIMARY KEY(emp_ID,role_name),
     FOREIGN KEY (emp_ID) REFERENCES EMPLOYEE(employee_ID),
     FOREIGN KEY (role_name) REFERENCES Role(role_name)
 );
 
 CREATE TABLE Role_existsIn_Department
 (
-    department_name VARCHAR(50) PRIMARY KEY,
-    role_name VARCHAR(50) PRIMARY KEY,
+    department_name VARCHAR(50),
+    role_name VARCHAR(50),
+    PRIMARY KEY(department_name,role_name),
     FOREIGN KEY (department_name) REFERENCES Department(name),
     FOREIGN KEY (Role_name) REFERENCES Role(role_name),
 );
@@ -79,7 +82,7 @@ CREATE TABLE Leave
     date_of_request DATE,
     start_date DATE,
     end_date DATE,
-    num_days AS (end_date) - (start_date),
+    num_days AS DATEDIFF(DAY,start_date,end_date),--fixed this as regular subtraction wasnt working
     final_approval_status VARCHAR(50) CHECK (final_approval_status IN ('Approved', 'Rejected', 'Pending')) DEFAULT 'Pending',
 );
 
@@ -90,7 +93,7 @@ CREATE TABLE Annual_Leave
     replacement_emp INT,
     FOREIGN KEY (emp_ID) REFERENCES Employee(employee_ID),
     FOREIGN KEY (request_ID) REFERENCES Leave(request_ID),
-    FOREIGN KEY (replacement_emp) REFERENCES Employee( employee_ID),
+    FOREIGN KEY (replacement_emp) REFERENCES Employee(employee_ID),
 );
 
 CREATE TABLE Accidental_Leave
@@ -169,7 +172,7 @@ CREATE TABLE Attendance
     date DATE,
     check_in_time TIME,
     check_out_time TIME,
-    total_duration AS (check_out_time) - (check_in_time),
+    total_duration AS DATEDIFF(minute,check_in_time,check_out_time),--11/14 fixed this
     status VARCHAR(50) CHECK (status IN ('Absent', 'Attended')) Default 'Absent',
     emp_ID INT,
     FOREIGN KEY (emp_ID) REFERENCES Employee(employee_ID),
