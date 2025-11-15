@@ -14,7 +14,7 @@ CREATE TABLE Department
 
 CREATE TABLE Employee
 (
-    employee_ID INT PRIMARY KEY,
+    employee_ID INT IDENTITY(1,1) PRIMARY KEY,
     first_name VARCHAR(50),
     last_name VARCHAR(50),
     email VARCHAR(50),
@@ -78,7 +78,7 @@ CREATE TABLE Role_existsIn_Department
 
 CREATE TABLE Leave
 (
-    request_ID INT PRIMARY KEY,
+    request_ID INT PRIMARY KEY IDENTITY(1,1),
     date_of_request DATE,
     start_date DATE,
     end_date DATE,
@@ -86,6 +86,7 @@ CREATE TABLE Leave
     final_approval_status VARCHAR(50) CHECK (final_approval_status IN ('Approved', 'Rejected', 'Pending')) DEFAULT 'Pending',
 );
 
+-- ALL Leave subclasses inheriate thier parent Leave request_id so sperate IDENTITY(1,1) is not require  
 CREATE TABLE Annual_Leave
 (
     request_ID INT PRIMARY KEY,
@@ -154,7 +155,7 @@ CREATE TABLE Document
 
 CREATE TABLE Payroll
 (
-    ID INT,
+    ID INT PRIMARY KEY IDENTITY(1,1),
     payment_date DATE,
     final_salary_amount DECIMAL(10,1),
     from_date DATE,
@@ -168,7 +169,7 @@ CREATE TABLE Payroll
 
 CREATE TABLE Attendance
 (
-    attendance_ID INT PRIMARY KEY,
+    attendance_ID INT PRIMARY KEY IDENTITY(1,1),
     date DATE,
     check_in_time TIME,
     check_out_time TIME,
@@ -180,7 +181,7 @@ CREATE TABLE Attendance
 
 CREATE TABLE Deduction
 (
-    deduction_ID INT,
+    deduction_ID INT IDENTITY(1,1),
     emp_ID INT,
     PRIMARY KEY(deduction_ID,emp_ID),
     date DATE,
@@ -196,7 +197,7 @@ CREATE TABLE Deduction
 
 CREATE TABLE Performance
 (
-    performance_ID INT PRIMARY KEY,
+    performance_ID INT PRIMARY KEY IDENTITY(1,1),
     rating INT CHECK (rating BETWEEN 1 AND 5),
     comments VARCHAR(50),
     semester CHAR(3),

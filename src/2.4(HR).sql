@@ -12,50 +12,48 @@ BEGIN
 END
 GO
 
-CREATE PROCEDURE HR_approval_an_acc--11/14 dont we need to check if the employee is full time or not?
+-- as3: major change turns out aprovals are pre put into the table so insert got changed to set
+-- as3: two important requirments are missing hr is supposed to be the last one approving ie the status of the leave entity itself should change
+-- as3: a PRODUCER to check if the leave was rejected and update it is required
+
+CREATE PROCEDURE HR_approval_an_acc--11/14 dont we need to check if the employee is full time or not? as3: yes this needs to be fixed
     @request_ID int,
     @HR_ID int
 AS
 BEGIN
-    IF @request_ID IN (								
-        SELECT request_id
+    IF @request_ID IN (                SELECT request_id
         FROM Accidental_Leave
     UNION
         SELECT request_id
         FROM Annual_Leave)
-INSERT INTO Employee_Approve_Leave
-        (Emp1_ID, Leave_ID, status)
-    VALUES
-        (
-            @request_ID,
-            @HR_ID,
-            CASE WHEN EXISTS (SELECT request_id
-            FROM Accidental_Leave) 
+UPDATE Employee_Approve_Leave
+    SET status = CASE WHEN EXISTS (SELECT request_id
+    FROM Accidental_Leave) 
 		THEN CASE WHEN
 			EXISTS (
 				SELECT employee_id
-            FROM Employee
-                INNER JOIN Accidental_Leave ON Accidental_Leave.emp_ID = Employee.employee_id
-                    AND @request_ID = Accidental_Leave.request_id
-            WHERE Employee.accidental_balance > 0
+    FROM Employee
+        INNER JOIN Accidental_Leave ON Accidental_Leave.emp_ID = Employee.employee_id
+            AND @request_ID = Accidental_Leave.request_id
+    WHERE Employee.accidental_balance > 0
 			) THEN 'Approved'
 			ELSE 'Rejected'
 		END
 		WHEN EXISTS (SELECT request_id
-            FROM Annual_Leave) 
+    FROM Annual_Leave) 
 		THEN CASE WHEN
 			EXISTS (
 				SELECT employee_id
-            FROM Employee
-                INNER JOIN Annual_Leave ON Annual_Leave.emp_ID = Employee.employee_id
-                    AND @request_ID = Annual_Leave.request_id
-            WHERE Employee.annual_balance > 0
+    FROM Employee
+        INNER JOIN Annual_Leave ON Annual_Leave.emp_ID = Employee.employee_id
+            AND @request_ID = Annual_Leave.request_id
+    WHERE Employee.annual_balance > 0
 			) THEN 'Approved'
 			ELSE 'Rejected'
 		END
 		ELSE 'Rejected'
-		END	
-)
+		END
+    WHERE Emp1_ID = @HR_ID AND Leave_ID=@request_id
 END
 GO
 
@@ -66,28 +64,24 @@ AS
 BEGIN
     IF @request_ID IN (SELECT request_id
     FROM Unpaid_Leave)
-INSERT INTO Employee_Approve_Leave
-        (Emp1_ID, Leave_ID, status)
-    VALUES
-        (
-            @request_ID,
-            @HR_ID,
+UPDATE Employee_Approve_Leave
+    SET status =
             CASE WHEN 30 > (
 				SELECT COUNT(*)
-            FROM Unpaid_Leave
-                INNER JOIN Leave ON Unpaid_Leave.request_id = Leave.request_id
-            WHERE Unpaid_Leave.emp_ID IN (
-					SELECT emp_id
-                FROM Unpaid_Leave u
-                INNER JOIN Employee e on u.emp_ID = e.Employee_ID
-                WHERE u.request_id = @request_id
-                AND
-                e.type_of_contract = 'Full time'--11/14 added this part since part-time employees are not eligible so assuming they can still request one, it should be rejected
+    FROM Unpaid_Leave
+        INNER JOIN Leave ON Unpaid_Leave.request_id = Leave.request_id
+    WHERE Unpaid_Leave.emp_ID IN (
+		SELECT emp_id
+        FROM Unpaid_Leave u
+            INNER JOIN Employee e on u.emp_ID = e.Employee_ID
+        WHERE u.request_id = @request_id
+            AND
+            e.type_of_contract = 'Full time'--11/14 added this part since part-time employees are not eligible so assuming they can still request one, it should be rejected
 				) AND YEAR(GETDATE()) = YEAR(Leave.start_date) -- Need to check if max unpaid leave is in the same year or not
 			) THEN 'Approved'
 			ELSE 'Rejected'
 			END
-		)
+		WHERE Emp1_ID = @HR_ID AND Leave_ID=@request_id
 END
 GO
 
@@ -98,30 +92,27 @@ AS
 BEGIN
     IF @request_ID IN (SELECT request_id
     FROM Compensation_Leave)
-INSERT INTO Employee_Approve_Leave
-        (Emp1_ID, Leave_ID, status)
-    VALUES
-        (
-            @request_ID,
-            @HR_ID,
+UPDATE Employee_Approve_Leave
+       SET status =
+    
             CASE WHEN EXISTS (
 				SELECT cl.request_id
-            FROM Compensation_Leave cl
-            WHERE cl.request_id = @request_id
-                AND EXISTS (
+    FROM Compensation_Leave cl
+    WHERE cl.request_id = @request_id
+        AND EXISTS (
 					SELECT attendance_ID
-                FROM Attendance
-                WHERE DATENAME(WEEKDAY, cl.date_of_original_workday) IN (
+        FROM Attendance
+        WHERE DATENAME(WEEKDAY, cl.date_of_original_workday) IN (
 						SELECT official_day_off
-                    FROM Employee
-                    WHERE Employee.emp_id = cl.emp_id
+            FROM Employee
+            WHERE Employee.emp_id = cl.emp_id
 					) AND MONTH(Attendance.date) = MONTH(cl.date_of_original_workday)
-                    AND YEAR(Attendance.date) = YEAR(cl.date_of_original_workday)
+            AND YEAR(Attendance.date) = YEAR(cl.date_of_original_workday)
 				)
 			) THEN 'Approved'
 			ELSE 'Rejected'
 			END
-		)
+		WHERE Emp1_ID = @HR_ID AND Leave_ID=@request_id
 END
 GO
 
