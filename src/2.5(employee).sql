@@ -497,8 +497,8 @@ BEGIN
     VALUES
         (@request_ID, @employee_id, @type, @insurance_status, @disability_details);
 
-    -- 5. Insert the Document (If provided)
-    -- This assumes you have a 'Document' table as implied by requirements 2.3.a and 2.5.m
+
+    -- For the documents type shit
     IF @file_name IS NOT NULL OR @document_description IS NOT NULL
     BEGIN
         INSERT INTO Document 
@@ -506,9 +506,6 @@ BEGIN
         VALUES 
             (@request_ID, @employee_ID, @document_description, @file_name, 'valid'); 
     END
-
-    -- 6. POPULATE APPROVALS (Standard Hierarchy Logic)
-
     -- Case A: HR Employees -> Need approval from higher HR
     IF EXISTS(
         SELECT employee_id
