@@ -2,6 +2,7 @@ CREATE ROLE Employee
 GO
 -- Fixed: invalid column name employee_ID and password here
 CREATE FUNCTION EmployeeLoginValidation(@employee_ID int, @password varchar(50))
+-- Goal: login using my Id and password
 RETURNS bit
 BEGIN
     DECLARE @ISVALID BIT = 0;
@@ -15,11 +16,8 @@ GO
 
 
 
-CREATE FUNCTION MyPerformance--invalid object name Performance here somehow
-(
-    @employee_ID INT,
-    @semester CHAR(3)
-)
+CREATE FUNCTION MyPerformance(@employee_ID INT, @semester CHAR(3))
+-- Goal: "Retrieve my performance for a certain semester."
 RETURNS TABLE
 AS
 RETURN
@@ -29,7 +27,7 @@ RETURN
     rating,
     comments,
     semester
-FROM Performance
+FROM Performance --invalid object name Performance here somehow, maybe drop the table and do it again
 WHERE emp_ID = @employee_ID
     AND semester = @semester
 )
