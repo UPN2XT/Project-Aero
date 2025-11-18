@@ -1,3 +1,5 @@
+-- TODO: MAKE SURE OF THE VARIABLES NAMES ESPECIALLY EMPLOYEEE ID (ITS CAPITAL)
+
 CREATE ROLE Employee
 GO
 -- Fixed: invalid column name employee_ID and password here
@@ -205,7 +207,7 @@ BEGIN
 
     SELECT @dept_name = dept_name
     FROM Employee
-    WHERE Employee.employee_id = @employee_id;
+    WHERE Employee.employee_ID = @employee_id;
 
     INSERT INTO Leave
         (date_of_request, start_date, end_date)
@@ -218,40 +220,40 @@ BEGIN
         (@request_id, @employee_id, @replacement_emp);
 
     IF EXISTS(
-        SELECT employee_id
+        SELECT employee_ID
     FROM Employee
-    WHERE employee_id = @employee_id
+    WHERE employee_ID = @employee_ID
         AND dept_name='HR')
     INSERT INTO Employee_Approve_Leave
         (Emp1_ID, Leave_ID)
-    SELECT e.employee_id, @request_id
+    SELECT e.employee_ID, @request_id
     FROM Employee e
-        INNER JOIN Employee_Role er ON er.emp_id = e.employee_id
+        INNER JOIN Employee_Role er ON er.emp_id = e.employee_ID
         INNER JOIN Role r ON r.role_name = er.role_name
     WHERE e.dept_name = 'HR'
         AND r.rank < @rank
-    GROUP BY employee_id
+    GROUP BY employee_ID
     ELSE IF EXISTS (
-        SELECT employee_id
+        SELECT employee_ID
     FROM Employee e
-        INNER JOIN Employee_Role er ON er.emp_id = e.employee_id
+        INNER JOIN Employee_Role er ON er.emp_id = e.employee_ID
         INNER JOIN Role r ON r.role_name = er.role_name
-    WHERE employee_id = @employee_id
+    WHERE employee_ID = @employee_id
         AND role_name IN ('Dean', 'Vice Dean')
     )
     INSERT INTO Employee_Approve_Leave
         (Emp1_ID, Leave_ID)
-    SELECT e.employee_id, @request_id
+    SELECT e.employee_ID, @request_id
     FROM Employee e
-        INNER JOIN Employee_Role er ON er.emp_id = e.employee_id
+        INNER JOIN Employee_Role er ON er.emp_id = e.employee_ID
         INNER JOIN Role r ON r.role_name = er.role_name
     WHERE r.rank <= 2
     ELSE
     INSERT INTO Employee_Approve_Leave
         (Emp1_ID, Leave_ID)
-    SELECT e.employee_id, @request_id
+    SELECT e.employee_ID, @request_id
     FROM Employee e
-        INNER JOIN Employee_Role er ON er.emp_id = e.employee_id
+        INNER JOIN Employee_Role er ON er.emp_id = e.employee_ID
         INNER JOIN Role r ON r.role_name = er.role_name
     WHERE (r.role_name = 'Dean' AND e.dept_name=@dep_name) OR e.dept_name = 'HR'
 
@@ -293,13 +295,13 @@ AS
 UPDATE Employee_Approve_Leave
         SET status =
                 CASE WHEN EXISTS (
-                    SELECT e.employee_id
+                    SELECT e.employee_ID
 FROM Employee e
     INNER JOIN Leave l ON l.request_id = @request_ID
     INNER JOIN Annual_Leave al ON al.request_id = @request_ID
-    INNER JOIN Employee e1 ON e1.employee_id = al.emp_ID
+    INNER JOIN Employee e1 ON e1.employee_ID = al.emp_ID
 WHERE e.dept_name = e1.dept_name
-    AND e.employee_id = @replacement_ID
+    AND e.employee_ID = @replacement_ID
     AND Is_On_Leave(@replacement_ID, l.start_date, end_date) = 0
                 ) then 'Approved' ELSE 'Rejected'
             END
@@ -361,14 +363,14 @@ BEGIN
     -- Get the employee's rank
     SELECT @rank = MAX(r.rank)
     FROM Employee e
-    INNER JOIN Employee_Role er ON er.emp_id = e.employee_id
+    INNER JOIN Employee_Role er ON er.emp_id = e.employee_ID
     INNER JOIN Role r ON r.role_name = er.role_name
-    WHERE e.employee_id = @Employee_ID;
+    WHERE e.employee_ID = @Employee_ID;
 
     -- Get the employee's department
     SELECT @dept_name = dept_name
     FROM Employee
-    WHERE Employee.employee_id = @employee_id;
+    WHERE Employee.employee_ID = @employee_id;
 
     -- 2. Insert into the main generic 'Leave' table
     INSERT INTO Leave
@@ -389,35 +391,35 @@ BEGIN
     
     -- Case A: If the employee is in HR, they need approval from higher-ranking HR staff.
     IF EXISTS(
-        SELECT employee_id
+        SELECT employee_ID
         FROM Employee
-        WHERE employee_id = @employee_id AND dept_name='HR'
+        WHERE employee_ID = @employee_id AND dept_name='HR'
     )
     BEGIN
         INSERT INTO Employee_Approve_Leave (Emp1_ID, Leave_ID)
-        SELECT e.employee_id, @request_id
+        SELECT e.employee_ID, @request_id
         FROM Employee e
-        INNER JOIN Employee_Role er ON er.emp_id = e.employee_id
+        INNER JOIN Employee_Role er ON er.emp_id = e.employee_ID
         INNER JOIN Role r ON r.role_name = er.role_name
         WHERE e.dept_name = 'HR'
         AND r.rank < @rank
-        GROUP BY e.employee_id
+        GROUP BY e.employee_ID
     END
 
     -- Case B: If the employee is a Dean or Vice Dean, they need approval from President/Vice President (Rank 1 or 2).
     ELSE IF EXISTS (
-        SELECT e.employee_id
+        SELECT e.employee_ID
         FROM Employee e
-        INNER JOIN Employee_Role er ON er.emp_id = e.employee_id
+        INNER JOIN Employee_Role er ON er.emp_id = e.employee_ID
         INNER JOIN Role r ON r.role_name = er.role_name
-        WHERE e.employee_id = @employee_id
+        WHERE e.employee_ID = @employee_id
         AND r.role_name IN ('Dean', 'Vice Dean')
     )
     BEGIN
         INSERT INTO Employee_Approve_Leave (Emp1_ID, Leave_ID)
-        SELECT e.employee_id, @request_id
+        SELECT e.employee_ID, @request_id
         FROM Employee e
-        INNER JOIN Employee_Role er ON er.emp_id = e.employee_id
+        INNER JOIN Employee_Role er ON er.emp_id = e.employee_ID
         INNER JOIN Role r ON r.role_name = er.role_name
         WHERE r.rank <= 2
     END
@@ -426,9 +428,9 @@ BEGIN
     ELSE
     BEGIN
         INSERT INTO Employee_Approve_Leave (Emp1_ID, Leave_ID)
-        SELECT e.employee_id, @request_id
+        SELECT e.employee_ID, @request_id
         FROM Employee e
-        INNER JOIN Employee_Role er ON er.emp_id = e.employee_id
+        INNER JOIN Employee_Role er ON er.emp_id = e.employee_ID
         INNER JOIN Role r ON r.role_name = er.role_name
         WHERE (r.role_name = 'Dean' AND e.dept_name = @dept_name) 
            OR e.dept_name = 'HR'
@@ -457,7 +459,7 @@ BEGIN
         DECLARE @contract_type VARCHAR(50);
         SELECT @contract_type = type_of_contract 
         FROM Employee 
-        WHERE employee_id = @employee_ID;
+        WHERE employee_ID = @employee_ID;
 
         IF @contract_type = 'part_time'
         BEGIN
@@ -473,14 +475,14 @@ BEGIN
     -- Get the employee's rank
     SELECT @rank = MAX(r.rank)
     FROM Employee e
-    INNER JOIN Employee_Role er ON er.emp_id = e.employee_id
+    INNER JOIN Employee_Role er ON er.emp_id = e.employee_ID
     INNER JOIN Role r ON r.role_name = er.role_name
-    WHERE e.employee_id = @Employee_ID;
+    WHERE e.employee_ID = @Employee_ID;
 
     -- Get the employee's department
     SELECT @dept_name = dept_name
     FROM Employee
-    WHERE Employee.employee_id = @employee_id;
+    WHERE Employee.employee_ID = @employee_id;
 
     -- 2. Insert into the main generic 'Leave' table
     INSERT INTO Leave
@@ -508,35 +510,35 @@ BEGIN
     END
     -- Case A: HR Employees -> Need approval from higher HR
     IF EXISTS(
-        SELECT employee_id
+        SELECT employee_ID
         FROM Employee
-        WHERE employee_id = @employee_id AND dept_name='HR'
+        WHERE employee_ID = @employee_ID AND dept_name='HR'
     )
     BEGIN
         INSERT INTO Employee_Approve_Leave (Emp1_ID, Leave_ID)
-        SELECT e.employee_id, @request_id
+        SELECT e.employee_ID, @request_id
         FROM Employee e
-        INNER JOIN Employee_Role er ON er.emp_id = e.employee_id
+        INNER JOIN Employee_Role er ON er.emp_id = e.employee_ID
         INNER JOIN Role r ON r.role_name = er.role_name
         WHERE e.dept_name = 'HR'
         AND r.rank < @rank
-        GROUP BY e.employee_id
+        GROUP BY e.employee_ID
     END
 
     -- Case B: Dean/Vice Dean -> Need approval from President/Vice President (Rank 1 or 2)
     ELSE IF EXISTS (
-        SELECT e.employee_id
+        SELECT e.employee_ID
         FROM Employee e
-        INNER JOIN Employee_Role er ON er.emp_id = e.employee_id
+        INNER JOIN Employee_Role er ON er.emp_id = e.employee_ID
         INNER JOIN Role r ON r.role_name = er.role_name
-        WHERE e.employee_id = @employee_id
+        WHERE e.employee_ID = @employee_id
         AND r.role_name IN ('Dean', 'Vice Dean')
     )
     BEGIN
         INSERT INTO Employee_Approve_Leave (Emp1_ID, Leave_ID)
-        SELECT e.employee_id, @request_id
+        SELECT e.employee_ID, @request_id
         FROM Employee e
-        INNER JOIN Employee_Role er ON er.emp_id = e.employee_id
+        INNER JOIN Employee_Role er ON er.emp_id = e.employee_ID
         INNER JOIN Role r ON r.role_name = er.role_name
         WHERE r.rank <= 2
     END
@@ -545,9 +547,9 @@ BEGIN
     ELSE
     BEGIN
         INSERT INTO Employee_Approve_Leave (Emp1_ID, Leave_ID)
-        SELECT e.employee_id, @request_id
+        SELECT e.employee_ID, @request_id
         FROM Employee e
-        INNER JOIN Employee_Role er ON er.emp_id = e.employee_id
+        INNER JOIN Employee_Role er ON er.emp_id = e.employee_ID
         INNER JOIN Role r ON r.role_name = er.role_name
         WHERE (r.role_name = 'Dean' AND e.dept_name = @dept_name) 
            OR e.dept_name = 'HR'
