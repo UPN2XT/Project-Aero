@@ -192,7 +192,7 @@ CREATE TABLE Deduction
     attendance_ID INT,
     FOREIGN KEY (emp_ID) REFERENCES Employee(employee_ID),
     FOREIGN KEY (unpaid_ID) REFERENCES Unpaid_leave(request_ID),
-    FOREIGN KEY (attendance_ID) REFERENCES Attendance(attendance_id),
+    FOREIGN KEY (attendance_ID) REFERENCES Attendance(attendance_ID),
 );
 
 CREATE TABLE Performance
@@ -221,7 +221,7 @@ CREATE TABLE Employee_Approve_Leave
     Emp1_ID INT,
     Leave_ID INT,
     PRIMARY KEY(Emp1_ID,Leave_ID),
-    status VARCHAR(50),
+    status VARCHAR(50), 
     FOREIGN KEY (Emp1_ID) REFERENCES Employee(employee_ID),
     FOREIGN KEY (Leave_ID) REFERENCES Leave(request_ID),
 );

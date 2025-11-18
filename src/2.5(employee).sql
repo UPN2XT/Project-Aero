@@ -556,3 +556,263 @@ BEGIN
     END
 END
 GO
+
+
+CREATE PROCEDURE Submit_unpaid
+-- Goal: Apply for unpaid leave. Populate the approval table accordingly
+-- with the corresponding employees for the leaves’ approval based on the hierarchy
+    @employee_ID INT,
+    @start_date DATE,
+    @end_date DATE,
+    @document_description VARCHAR(50),
+    @file_name VARCHAR(50)
+AS
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM Employee 
+        WHERE employee_ID = @employee_ID AND type_of_contract = 'part_time'
+    )
+    BEGIN
+        PRINT 'Error: Part-time employees are not eligible for unpaid leaves.';
+        RETURN;
+    END
+
+    IF DATEDIFF(DAY, @start_date, @end_date) > 30
+    BEGIN
+        PRINT 'Error: Unpaid leave cannot exceed 30 days.';
+        RETURN;
+    END
+
+    -- We check if they already have an 'Approved' unpaid leave in the current year.
+    IF EXISTS (
+        SELECT 1 
+        FROM Unpaid_Leave ul
+        INNER JOIN Leave l ON ul.request_id = l.request_id
+        WHERE ul.emp_ID = @employee_ID 
+          AND l.status = 'Approved' 
+          AND YEAR(l.start_date) = YEAR(GETDATE())
+    )
+    BEGIN
+        PRINT 'Error: You can only have one approved unpaid leave per year.';
+        RETURN;
+    END
+
+    DECLARE @request_ID INT;
+    DECLARE @dept_name VARCHAR(50);
+    
+    -- Get Dept Name for logic later
+    SELECT @dept_name = dept_name FROM Employee WHERE employee_ID = @employee_ID;
+
+    -- 4. Insert into generic Leave table
+    INSERT INTO Leave (date_of_request, start_date, end_date)
+    VALUES (GETDATE(), @start_date, @end_date);
+    
+    SET @request_ID = SCOPE_IDENTITY();
+
+    -- 5. Insert into Unpaid_Leave table
+    INSERT INTO Unpaid_Leave (request_id, emp_id)
+    VALUES (@request_ID, @employee_ID);
+
+    -- 6. Insert Document (if provided)
+    IF @file_name IS NOT NULL OR @document_description IS NOT NULL
+    BEGIN
+        INSERT INTO Document (request_id, emp_id, description, file_name, status)
+        VALUES (@request_ID, @employee_ID, @document_description, @file_name, 'valid');
+    END
+    
+    -- CASE A: The Applicant is an HR Employee
+    -- Guideline: "Must be approved/rejected by the President and HR Manager."
+    IF @dept_name = 'HR'
+    BEGIN
+        INSERT INTO Employee_Approve_Leave (Emp1_ID, Leave_ID)
+        SELECT e.employee_ID, @request_ID
+        FROM Employee e
+        INNER JOIN Employee_Role er ON e.employee_ID = er.emp_id
+        INNER JOIN Role r ON er.role_name = r.role_name
+        WHERE r.role_name = 'President' 
+           OR (r.role_name = 'HR Manager' AND e.dept_name = 'HR');
+    END
+
+    -- CASE B: The Applicant is a Dean or Vice Dean
+    -- Guideline: "Must be approved/rejected by the President and HR Representative."
+    ELSE IF EXISTS (
+        SELECT 1 FROM Employee_Role er 
+        INNER JOIN Role r ON er.role_name = r.role_name
+        WHERE er.emp_id = @employee_ID AND r.role_name IN ('Dean', 'Vice Dean')
+    )
+    BEGIN
+        INSERT INTO Employee_Approve_Leave (Emp1_ID, Leave_ID)
+        SELECT e.employee_ID, @request_ID
+        FROM Employee e
+        INNER JOIN Employee_Role er ON e.employee_ID = er.emp_id
+        INNER JOIN Role r ON er.role_name = r.role_name
+        WHERE r.role_name = 'President' 
+           OR (r.role_name = 'HR Representative' AND e.dept_name = 'HR');
+    END
+
+    -- CASE C: Regular Employee (Dean of their Dept + HR)
+    ELSE
+    BEGIN
+        INSERT INTO Employee_Approve_Leave (Emp1_ID, Leave_ID)
+        SELECT e.employee_ID, @request_ID
+        FROM Employee e
+        INNER JOIN Employee_Role er ON e.employee_ID = er.emp_id
+        INNER JOIN Role r ON er.role_name = r.role_name
+        WHERE (r.role_name = 'Dean' AND e.dept_name = @dept_name)
+           OR e.dept_name = 'HR';
+    END
+END
+GO
+
+
+CREATE PROCEDURE Upperboard_approve_unpaids
+-- Goal: As a Dean/Vice-dean/President I can approve/reject unpaid leaves. memo document submitted with a valid reason,
+-- the leave gets approved.
+    @request_ID INT,
+    @Upperboard_ID INT
+AS
+BEGIN
+    -- Requirement: "In case a memo document is submitted with a valid reason, the leave gets approved."
+    -- If a document is found, the status becomes 'Approved'. If not, it becomes 'Rejected'.
+    UPDATE Employee_Approve_Leave
+    SET status = CASE 
+                    WHEN EXISTS (
+                        SELECT 1 
+                        FROM Document 
+                        WHERE request_id = @request_ID 
+                        AND status = 'valid' 
+                    ) THEN 'Approved' 
+                    ELSE 'Rejected' 
+                 END
+    WHERE Emp1_ID = @Upperboard_ID 
+      AND Leave_ID = @request_ID;
+END
+GO
+
+
+
+
+
+
+CREATE PROCEDURE Submit_compensation
+-- Goal: Apply for a compensation leave. Populate the approval table
+-- accordingly with the corresponding employees for the leaves’ approval based on the hierarchy
+    @employee_ID INT,
+    @compensation_date DATE, 
+    @reason VARCHAR(50),
+    @date_of_original_workday DATE, 
+    @replacement_emp INT
+AS
+BEGIN
+    IF MONTH(GETDATE()) <> MONTH(@date_of_original_workday) OR YEAR(GETDATE()) <> YEAR(@date_of_original_workday)
+    BEGIN
+        PRINT 'Error: Compensation leave must be requested within the same month as the extra work day.';
+        RETURN;
+    END
+
+    -- Check B: "Spent at least 8 hours during his/her day off"
+    DECLARE @hours_worked INT;
+    
+    SELECT @hours_worked = DATEDIFF(HOUR, check_in_time, check_out_time)
+    FROM Attendance
+    WHERE emp_id = @employee_ID 
+      AND date = @date_of_original_workday;
+
+    IF @hours_worked IS NULL OR @hours_worked < 8
+    BEGIN
+        PRINT 'Error: You must have worked at least 8 hours on the original workday to claim compensation.';
+        RETURN;
+    END
+
+    -- Check C: Verify that @date_of_original_workday was actually their "Official Day Off"
+    DECLARE @official_day_off VARCHAR(50);
+    SELECT @official_day_off = official_day_off 
+    FROM Employee 
+    WHERE employee_ID = @employee_ID;
+
+    -- DATENAME returns 'Saturday', 'Sunday', etc. matching the expected format of official_day_off
+    -- Not sure of this one
+    IF DATENAME(WEEKDAY, @date_of_original_workday) <> @official_day_off
+    BEGIN
+        PRINT 'Error: The date of original work must match your official day off.';
+        RETURN;
+    END
+
+    DECLARE @request_ID INT;
+    DECLARE @rank INT;
+    DECLARE @dept_name VARCHAR(50);
+
+    -- Get the employee's rank and department for Approval Logic
+    SELECT @rank = MAX(r.rank), 
+    @dept_name = e.dept_name
+    FROM Employee e
+    INNER JOIN Employee_Role er ON er.emp_id = e.employee_id
+    INNER JOIN Role r ON r.role_name = er.role_name
+    WHERE e.employee_id = @Employee_ID
+    GROUP BY e.dept_name;
+
+    -- Insert into generic Leave table (Duration is usually 1 day for compensation)
+    INSERT INTO Leave
+        (date_of_request, start_date, end_date)
+    VALUES
+        (GETDATE(), @compensation_date, @compensation_date);
+
+    SET @request_ID = SCOPE_IDENTITY();
+
+    -- Insert into specific Compensation_Leave table
+    INSERT INTO Compensation_Leave
+        (request_id, emp_id, reason, original_work_date, replacement_emp)
+    VALUES
+        (@request_ID, @employee_ID, @reason, @date_of_original_workday, @replacement_emp);
+
+
+    -- Case A: HR Employees -> Need approval from higher HR
+    IF EXISTS(
+        SELECT employee_id
+        FROM Employee
+        WHERE employee_id = @employee_id AND dept_name='HR'
+    )
+    BEGIN
+        INSERT INTO Employee_Approve_Leave (Emp1_ID, Leave_ID)
+        SELECT e.employee_id, @request_id
+        FROM Employee e
+        INNER JOIN Employee_Role er ON er.emp_id = e.employee_id
+        INNER JOIN Role r ON r.role_name = er.role_name
+        WHERE e.dept_name = 'HR'
+        AND r.rank < @rank
+        GROUP BY e.employee_id
+    END
+
+    -- Case B: Dean/Vice Dean -> Need approval from President/Vice President (Rank 1 or 2)
+    ELSE IF EXISTS (
+        SELECT e.employee_id
+        FROM Employee e
+        INNER JOIN Employee_Role er ON er.emp_id = e.employee_id
+        INNER JOIN Role r ON r.role_name = er.role_name
+        WHERE e.employee_id = @employee_id
+        AND r.role_name IN ('Dean', 'Vice Dean')
+    )
+    BEGIN
+        INSERT INTO Employee_Approve_Leave (Emp1_ID, Leave_ID)
+        SELECT e.employee_id, @request_id
+        FROM Employee e
+        INNER JOIN Employee_Role er ON er.emp_id = e.employee_id
+        INNER JOIN Role r ON r.role_name = er.role_name
+        WHERE r.rank <= 2
+    END
+
+    -- Case C: Regular employees -> Need approval from their Dean AND HR
+    ELSE
+    BEGIN
+        INSERT INTO Employee_Approve_Leave (Emp1_ID, Leave_ID)
+        SELECT e.employee_id, @request_id
+        FROM Employee e
+        INNER JOIN Employee_Role er ON er.emp_id = e.employee_id
+        INNER JOIN Role r ON r.role_name = er.role_name
+        WHERE (r.role_name = 'Dean' AND e.dept_name = @dept_name) 
+           OR e.dept_name = 'HR'
+    END
+END
+GO
+
+
