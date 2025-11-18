@@ -338,3 +338,103 @@ GO
 -- VALUES
 --     (@employee_id, @rating, @comment, @semester)
 -- GO
+
+CREATE PROCEDURE Submit_accidental
+-- Goal: Apply for an accidental leave. Populate the approval table accordingly with the corresponding 
+-- employees for the leaves’ approval based on the hierarchy
+    @employee_ID INT,
+    @start_date DATE,
+    @end_date DATE
+AS
+BEGIN
+    -- 1. VALIDATION: Accidental leaves must be exactly 1 day (Section 1.4).
+    -- If the start date is not the same as the end date, we reject it.
+    IF @start_date <> @end_date
+    BEGIN
+        PRINT 'Error: Accidental leaves can only be for 1 day (Start Date must equal End Date).';
+        RETURN;
+    END
+
+    DECLARE @request_ID INT;
+    DECLARE @rank INT;
+    DECLARE @dept_name VARCHAR(50); 
+
+    -- Get the employee's rank
+    SELECT @rank = MAX(r.rank)
+    FROM Employee e
+    INNER JOIN Employee_Role er ON er.emp_id = e.employee_id
+    INNER JOIN Role r ON r.role_name = er.role_name
+    WHERE e.employee_id = @Employee_ID;
+
+    -- Get the employee's department
+    SELECT @dept_name = dept_name
+    FROM Employee
+    WHERE Employee.employee_id = @employee_id;
+
+    -- 2. Insert into the main generic 'Leave' table
+    INSERT INTO Leave
+        (date_of_request, start_date, end_date)
+    VALUES
+        (GETDATE(), @start_date, @end_date);
+
+    -- 3. Get the ID of the row we just created
+    SET @request_ID = SCOPE_IDENTITY();
+
+    -- 4. Insert into the specific 'Accidental_Leave' table
+    -- Note: We do NOT insert a replacement_emp here.
+    INSERT INTO Accidental_Leave
+        (request_id, emp_id)
+    VALUES
+        (@request_ID, @employee_id);
+
+    -- 5. POPULATE APPROVALS (Logic copied from Submit_annual)
+    
+    -- Case A: If the employee is in HR, they need approval from higher-ranking HR staff.
+    IF EXISTS(
+        SELECT employee_id
+        FROM Employee
+        WHERE employee_id = @employee_id AND dept_name='HR'
+    )
+    BEGIN
+        INSERT INTO Employee_Approve_Leave (Emp1_ID, Leave_ID)
+        SELECT e.employee_id, @request_id
+        FROM Employee e
+        INNER JOIN Employee_Role er ON er.emp_id = e.employee_id
+        INNER JOIN Role r ON r.role_name = er.role_name
+        WHERE e.dept_name = 'HR'
+        AND r.rank < @rank
+        GROUP BY e.employee_id
+    END
+
+    -- Case B: If the employee is a Dean or Vice Dean, they need approval from President/Vice President (Rank 1 or 2).
+    ELSE IF EXISTS (
+        SELECT e.employee_id
+        FROM Employee e
+        INNER JOIN Employee_Role er ON er.emp_id = e.employee_id
+        INNER JOIN Role r ON r.role_name = er.role_name
+        WHERE e.employee_id = @employee_id
+        AND r.role_name IN ('Dean', 'Vice Dean')
+    )
+    BEGIN
+        INSERT INTO Employee_Approve_Leave (Emp1_ID, Leave_ID)
+        SELECT e.employee_id, @request_id
+        FROM Employee e
+        INNER JOIN Employee_Role er ON er.emp_id = e.employee_id
+        INNER JOIN Role r ON r.role_name = er.role_name
+        WHERE r.rank <= 2
+    END
+
+    -- Case C: Regular employees (Lecturers, TAs, etc.) need approval from their Dean AND HR.
+    ELSE
+    BEGIN
+        INSERT INTO Employee_Approve_Leave (Emp1_ID, Leave_ID)
+        SELECT e.employee_id, @request_id
+        FROM Employee e
+        INNER JOIN Employee_Role er ON er.emp_id = e.employee_id
+        INNER JOIN Role r ON r.role_name = er.role_name
+        WHERE (r.role_name = 'Dean' AND e.dept_name = @dept_name) 
+           OR e.dept_name = 'HR'
+    END
+END
+GO
+

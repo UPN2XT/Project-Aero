@@ -82,7 +82,7 @@ CREATE TABLE Leave
     date_of_request DATE,
     start_date DATE,
     end_date DATE,
-    num_days AS DATEDIFF(DAY,start_date,end_date),--fixed this as regular subtraction wasnt working
+    num_days AS DATEDIFF(DAY,start_date,end_date), --fixed this as regular subtraction wasnt working
     final_approval_status VARCHAR(50) CHECK (final_approval_status IN ('Approved', 'Rejected', 'Pending')) DEFAULT 'Pending',
 );
 
