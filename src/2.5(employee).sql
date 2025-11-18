@@ -34,12 +34,8 @@ WHERE emp_ID = @employee_ID
 GO
 
 
-
-
-CREATE FUNCTION Last_month_payroll--invalid object name Payroll as well
-(
-    @employee_ID INT
-)
+CREATE FUNCTION Last_month_payroll(@employee_ID INT)
+-- Goal: Retrieve last month's payroll details
 RETURNS TABLE
 AS
 RETURN
@@ -53,20 +49,27 @@ RETURN
     comments,
     bonus_amount,
     deductions_amount
-FROM Payroll
-WHERE emp_ID = @employee_ID
+FROM Payroll --invalid object name Payroll as well
+WHERE emp_ID = @employee_ID -- wtf is happening here?
     AND MONTH(payment_date) = MONTH(DATEADD(MONTH, -1, GETDATE()))
     AND YEAR(payment_date) = YEAR(DATEADD(MONTH, -1, GETDATE()))
 );
 GO
 
-CREATE FUNCTION MyAttendance(@employee_ID int)--not sure how we would remove the employees unoffical day off when both are different variable type
+CREATE FUNCTION MyAttendance(@employee_ID int)
+-- Goal: Retrieve attendance records for the current month, excluding my unattended official_day_off
 RETURNS TABLE
 AS
 RETURN(
-SELECT *
-FROM Attendance a
-WHERE a.emp_ID = employee_ID);
+    SELECT a.*
+    FROM Attendance a
+    INNER JOIN Employee e ON a.emp_ID = e.employee_id
+    WHERE
+        a.emp_ID = @employee_ID
+        AND MONTH(a.date) = MONTH(GETDATE())
+        AND YEAR(a.date) = YEAR(GETDATE())
+        AND DATENAME(weekday, a.date) != e.official_day_off
+);
 GO
 
 
