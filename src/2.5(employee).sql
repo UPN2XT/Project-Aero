@@ -85,7 +85,13 @@ WHERE @employee_ID = d.emp_ID AND MONTH(d.date) = @month
 GO
 
 -- as3 fixed by gemini
+-- IMPORTANT NOTE: 
+-- "treat it as approved for verification purposes." This implies checking the status 
+-- from the LEAVE table. our query doesn't check status at all
 CREATE FUNCTION Is_On_Leave(@employee_ID INT, @from DATE, @to DATE)
+
+-- Goal: Verify whether the employee will be on leave during the specified period...
+-- treat it as approved for verification purposes
 RETURNS BIT
 AS
 BEGIN
@@ -185,6 +191,7 @@ GO
 -- as3: this need revisting to make sure it complies with the guidlines in 1 also that it is actually working
 -- as3: TODO: j - n follow similar structure to this
 CREATE PROCEDURE Submit_annual
+-- Goal: Apply for an annual leave. Populate the approval table accordingly
     @employee_ID INT,
     @replacement_emp INT,
     @start_date DATE,
@@ -252,10 +259,11 @@ END GO
 
 -- as3
 CREATE FUNCTION Status_leaves(@employee_ID INT)
+-- Goal: Retrieve the status of all my submitted annual and accidental leaves during the current month.
 RETURNS TABLE
 AS
 RETURN (
-                                        SELECT al.request_ID,
+        SELECT al.request_ID,
         l.date_of_request,
         al.final_approval_status AS status
     FROM Annual_Leave aL
@@ -276,6 +284,8 @@ GO
 -- as3
 -- when rejected leave status should be updated aswll
 CREATE PROCEDURE Upperboard_approve_annual
+-- Goal: As a Dean/Vice-dean/President I can approve/reject annual leaves. 
+--In case the person of replacement isn't on leave and works in the same department, the leave gets approved.
     @request_ID INT,
     @Upperboard_ID INT,
     @replacement_ID INT
@@ -296,16 +306,35 @@ WHERE e.dept_name = e1.dept_name
             WHERE Emp1_ID = @Upperboard_ID AND Leave_ID=@request_id
 GO
 
--- as3
+-- My new function
 CREATE PROCEDURE Dean_andHR_Evaluation
     @employee_ID INT,
     @rating INT,
-    @comment VARCHAR(40),
+    @comment VARCHAR(50), 
     @semester CHAR(3)
 AS
-INSERT INTO Performance
-    (emp_ID, rating, comments, semester)
-VALUES
-    (@employee_id, @rating, @comment, @semester)
+BEGIN
+    IF @rating < 1 OR @rating > 5
+    BEGIN
+        PRINT 'Error: Rating must be between 1 and 5.';
+        RETURN;
+    END
+    INSERT INTO Performance
+        (emp_ID, rating, comments, semester)
+    VALUES
+        (@employee_ID, @rating, @comment, @semester);
+END
 GO
 
+-- as3 / OLD FUNCTION
+-- CREATE PROCEDURE Dean_andHR_Evaluation
+--     @employee_ID INT,
+--     @rating INT,
+--     @comment VARCHAR(40),
+--     @semester CHAR(3)
+-- AS
+-- INSERT INTO Performance
+--     (emp_ID, rating, comments, semester)
+-- VALUES
+--     (@employee_id, @rating, @comment, @semester)
+-- GO
