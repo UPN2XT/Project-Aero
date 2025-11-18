@@ -1,13 +1,13 @@
 CREATE ROLE Employee
 GO
-
-CREATE FUNCTION EmployeeLoginValidation(@Employee_ID int, @Password varchar(50))--invalid column name employee_ID and password here
+-- Fixed: invalid column name employee_ID and password here
+CREATE FUNCTION EmployeeLoginValidation(@employee_ID int, @password varchar(50))
 RETURNS bit
 BEGIN
     DECLARE @ISVALID BIT = 0;
     IF EXISTS(SELECT *
     FROM Employee e
-    where @Employee_ID= e.employee_ID AND @Password = e.[password])
+    where @employee_ID= e.employee_ID AND @password = e.[password])
  SET @ISVALID = 1;
     return @ISVALID
 END
