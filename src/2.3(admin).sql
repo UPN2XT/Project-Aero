@@ -1,6 +1,8 @@
 
-CREATE ROLE admin --assumed we will need something like this for admin.employee and hr
-GO
+--CREATE ROLE admin --assumed we will need something like this for admin.employee and hr
+--GO
+
+-- bv1 checked: unit test to be created 
 CREATE PROCEDURE Update_Status_Doc
 AS
 UPDATE Document
@@ -9,6 +11,7 @@ where GETDATE() > expiry_date;
 GO
 
 -- changed it to delete as it says remove
+-- bv1 checked: unit test to be created 
 CREATE PROCEDURE  Remove_Deductions
 AS
 DELETE d FROM Deduction d
@@ -28,8 +31,22 @@ where e.employment_status ='Resigned'
 GO
 */
 
--- new in as2 needs to be rechecked
+--bv 1: simplified query unit tests to be created
 CREATE PROCEDURE Update_Employment_Status
+    @Employee_ID int
+AS
+UPDATE Employee
+SET status = CASE
+            WHEN status In ('Notice Period', 'Resigned') THEN e.status
+            WHEN Is_On_Leave(@Employee_ID) = 1 THEN 'Onleave' 
+            ELSE e.status 
+        END
+WHERE e.Emp_ID = @Employee_ID;
+GO
+
+
+-- new in as2 needs to be rechecked
+/*CREATE PROCEDURE Update_Employment_Status
     @Employee_ID int
 AS
 WITH
@@ -84,7 +101,7 @@ SET status = sc.NewStatus
 FROM Employee e
     INNER JOIN EmployeeStatusCheck sc ON e.Emp_ID = sc.Emp_ID
 WHERE e.Emp_ID = @Employee_ID;
-GO
+GO*/
 
 CREATE PROCEDURE Create_Holiday
 AS
@@ -114,7 +131,8 @@ AS
 BEGIN
     DECLARE @CurrentDate DATE = CAST(GETDATE() AS DATE);
     INSERT INTO Attendance
-        (date, status, emp_ID)-- 11/14 shouldnt date be changed to @CurrentDate and status to be written as [status]?
+        (date, status, emp_ID)
+    -- 11/14 shouldnt date be changed to @CurrentDate and status to be written as [status]?
     SELECT
         @CurrentDate,
         'Absent',
@@ -182,36 +200,41 @@ GO
 CREATE PROCEDURE  Remove_Approved_Leaves
     @Employee_id int
 AS
-WITH ApprovedLeave AS (SELECT request_id,l.start_date,l.end_date
-            FROM LEAVE l
-        INNER JOIN (
-            SELECT request_id,emp_ID
-            FROM Annual_Leave 
-            WHERE emp_id = @Employee_ID
-        UNION ALL
-            SELECT request_id, emp_id
-            FROM Accidental_Leave
-            WHERE emp_id = @Employee_ID
-        UNION ALL
-            SELECT request_id, emp_id
-            FROM Medical_Leave
-            WHERE emp_id = @Employee_ID
-        UNION ALL
-            SELECT request_id, emp_id
-            FROM Unpaid_Leave
-            WHERE emp_id = @Employee_ID
-        UNION ALL
-            SELECT request_id, emp_id
-            FROM Compensation_Leave
-            WHERE emp_id = @Employee_ID
+WITH
+    ApprovedLeave
+    AS
+    (
+        SELECT request_id, l.start_date, l.end_date
+        FROM LEAVE l
+            INNER JOIN (
+                                                                SELECT request_id, emp_ID
+                FROM Annual_Leave
+                WHERE emp_id = @Employee_ID
+            UNION ALL
+                SELECT request_id, emp_id
+                FROM Accidental_Leave
+                WHERE emp_id = @Employee_ID
+            UNION ALL
+                SELECT request_id, emp_id
+                FROM Medical_Leave
+                WHERE emp_id = @Employee_ID
+            UNION ALL
+                SELECT request_id, emp_id
+                FROM Unpaid_Leave
+                WHERE emp_id = @Employee_ID
+            UNION ALL
+                SELECT request_id, emp_id
+                FROM Compensation_Leave
+                WHERE emp_id = @Employee_ID
             ) AS subleaves
             ON l.request_id=subleaves.request_id
-            WHERE [status] ='Approved'
+        WHERE [status] ='Approved'
     )
     DELETE FROM Attendance
-    WHERE emp_ID = @Employee_id 
-    AND 
-    EXISTS (SELECT * FROM Approvedleave
+    WHERE emp_ID = @Employee_id
+    AND
+    EXISTS (SELECT *
+    FROM Approvedleave
     WHERE Attendance.[date] BETWEEN al.start_date AND al.end_date)
 
 
