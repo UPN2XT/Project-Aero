@@ -36,16 +36,16 @@ CREATE PROCEDURE Update_Employment_Status
     @Employee_ID int
 AS
 UPDATE Employee
-SET status = CASE
-            WHEN status In ('Notice Period', 'Resigned') THEN e.status
-            WHEN Is_On_Leave(@Employee_ID) = 1 THEN 'Onleave' 
-            ELSE e.status 
-        END
-WHERE e.Emp_ID = @Employee_ID;
+SET employment_status = CASE
+            WHEN employment_status In ('Notice Period', 'Resigned') THEN employment_status
+            WHEN  dbo.Is_On_Leave(@Employee_ID) = 1 THEN 'Onleave' 
+            ELSE 'Active'
+        END 
+WHERE employee_ID = @Employee_ID;
 GO
 
 
--- new in as2 needs to be rechecked
+-- as2: old version
 /*CREATE PROCEDURE Update_Employment_Status
     @Employee_ID int
 AS
@@ -103,6 +103,7 @@ FROM Employee e
 WHERE e.Emp_ID = @Employee_ID;
 GO*/
 
+-- -- bv1 checked: unit test to be created 
 CREATE PROCEDURE Create_Holiday
 AS
 CREATE TABLE Holiday
@@ -114,6 +115,7 @@ CREATE TABLE Holiday
 );
 GO
 
+-- bv1 checked: unit test to be created 
 CREATE PROCEDURE  Add_Holiday
     @holiday_name VARCHAR(50),
     @from_date date,
@@ -126,13 +128,14 @@ GO
 
 /*should be working but we will still need to recheck it
 11-14 still has the error of invalid column name for employment_status and employee_ID*/
+-- bv1 checked: unit test to be created 
 CREATE PROCEDURE Intitiate_Attendance
 AS
 BEGIN
     DECLARE @CurrentDate DATE = CAST(GETDATE() AS DATE);
     INSERT INTO Attendance
-        (date, status, emp_ID)
-    -- 11/14 shouldnt date be changed to @CurrentDate and status to be written as [status]?
+        ([date], [status], emp_ID)
+    -- 11/14 shouldnt date be changed to @CurrentDate?? and status to be written as [status]?
     SELECT
         @CurrentDate,
         'Absent',
@@ -155,6 +158,7 @@ GO
     so i changed it to this
     also older implementaion didnt update probably it would have updated more than one record and not update ones that should be updated aswell    
 */
+-- bv1 checked: unit test to be created 
 CREATE PROCEDURE Update_Attendance
     @Employee_id int,
     @check_in time,
@@ -167,11 +171,12 @@ check_out_time = @check_out
 FROM Attendance
     INNER JOIN Employee on Attendance.emp_ID = Employee.employee_ID
 WHERE @Employee_id = emp_ID
-    AND Attendance.date = GETDATE() -- attencence of the given day
+    AND Attendance.date = CAST(GETDATE() AS DATE) -- attencence of the given day
     /* old imp: AND Attendance.total_hours >=8 AND Employee.type_of_contract = 'Full time')
     OR (total_hours<8 AND type_of_contract<>'Part time')*/
 GO
 
+-- bv1 checked: unit test to be created 
 CREATE PROCEDURE Remove_Holiday/*asked gpt here so not 100% if there is a better way*/
 AS
 DELETE FROM Attendance
@@ -185,6 +190,7 @@ GO
     based on the previous one so double check
     as2: orginal would have deleted all attendance this should fix that
 */
+-- bv1 checked: unit test to be created 
 CREATE PROCEDURE Remove_DayOff
     @Employee_id int
 AS
@@ -195,8 +201,7 @@ FROM Employee
 where @Employee_id = Employee.employee_ID)
 GO
 
--- as2 note: this is wrong and i am too lazy to fix it whomever sees this u need to get all leaves that are approved for a given employee then remove them you will need to union all leave tables for this
---changed it to like what you said omar BUT i added join with the actual leave table and filtered them with status = approved
+-- bv1 checked: unit test to be created 
 CREATE PROCEDURE  Remove_Approved_Leaves
     @Employee_id int
 AS
@@ -206,8 +211,9 @@ WITH
     (
         SELECT request_id, l.start_date, l.end_date
         FROM LEAVE l
-            INNER JOIN (
-                                                                SELECT request_id, emp_ID
+            INNER JOIN
+            (                                                       
+                                                                                                                    SELECT request_id, emp_ID
                 FROM Annual_Leave
                 WHERE emp_id = @Employee_ID
             UNION ALL
@@ -229,6 +235,7 @@ WITH
             ) AS subleaves
             ON l.request_id=subleaves.request_id
         WHERE [status] ='Approved'
+        -- bv1: need to check if pending also count as an approved leave in this case
     )
     DELETE FROM Attendance
     WHERE emp_ID = @Employee_id
@@ -241,11 +248,15 @@ WITH
 GO
 
 -- end of as2 check by omar ahmed
-
-CREATE PROCEDURE Replace_employee/*not sure if its just let emp1 from the table be 2 and 2 be 1 or not so will check later*/
+-- bv1 checked: unit test to be created need to check if will need to do more than just insert to table
+CREATE PROCEDURE Replace_employee
     @Emp1_ID int,
     @Emp2_ID int,
     @from_date date,
     @to_date date
 AS
+INSERT INTO Employee_Replace_Employee
+    (Emp1_ID, Emp2_ID, from_date, to_date)
+VALUES
+    (@Emp1_ID, @Emp2_ID, @from_date, @to_date);
 GO

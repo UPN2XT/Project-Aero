@@ -2,6 +2,10 @@
 
 please before commiting add what you changed here
 
+- ### bv1 (by Omar Ahmed):
+
+  - reviewed 2.3 fix bugs unit tests is needed to make sure functionality is right
+
 - ### as3 (11/15):
 
   - fixed the identity error in schema
