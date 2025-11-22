@@ -21,7 +21,7 @@ CREATE PROCEDURE HR_approval_an_acc--11/14 dont we need to check if the employee
     @HR_ID int
 AS
 BEGIN
-    IF @request_ID IN (                SELECT request_id
+    IF @request_ID IN (                                                                                                SELECT request_id
         FROM Accidental_Leave
     UNION
         SELECT request_id
@@ -273,4 +273,124 @@ BEGIN
 	)
 END
 GO
+
+CREATE FUNCTION get_approval_status(@Request_ID INT, @Dep_name VARCHAR(50), @Min_Rank INT)
+RETURNS VARCHAR(50)
+AS
+BEGIN
+    RETURN CASE WHEN EXISTS (
+    SELECT emp_id
+    FROM Employee_Approve_Leave
+        INNER JOIN Employee ON employee_id = emp_id
+            AND dept_name = @Dep_name
+            AND get_rank(employee_id) <= @Min_Rank
+    WHERE Leave_ID = @request_id
+        AND [status] = 'Approved'
+) THEN 'Approved'
+WHEN EXISTS (
+    SELECT emp_id
+    FROM Employee_Approve_Leave
+        INNER JOIN Employee ON employee_id = emp_id
+            AND dept_name = @Dep_name
+    WHERE Leave_ID = @request_id
+        AND [status] = 'Rejected'
+        AND get_rank(employee_id) <= @Min_Rank
+) THEN 'Rejected'
+ELSE 'Pending'
+END
+END
+GO
+
+CREATE FUNCTION get_approval_status_pres(@Request_ID INT)
+RETURNS VARCHAR(50)
+AS
+BEGIN
+    RETURN CASE WHEN EXISTS (
+    SELECT emp_id
+    FROM Employee_Approve_Leave
+        INNER JOIN Employee ON employee_id = emp_id
+            AND dept_name IS NULL
+            AND get_rank(employee_id) = 1
+    WHERE Leave_ID = @request_id
+        AND [status] = 'Approved'
+) THEN 'Approved'
+WHEN EXISTS (
+    SELECT emp_id
+    FROM Employee_Approve_Leave
+        INNER JOIN Employee ON employee_id = emp_id
+            AND dept_name = @Dep_name
+    WHERE Leave_ID = @request_id
+        AND dept_name IS NULL
+        AND get_rank(employee_id) = 1
+) THEN 'Rejected'
+ELSE 'Pending'
+END
+END
+GO
+
+CREATE PROCEDURE auto_update_accedintal_leave
+    @request_id INT
+AS
+BEGIN
+    UPDATE Leave
+SET [status] =  get_approval_status(@request_id, 'HR', 4)
+WHERE request_id = @request_id
+END
+GO
+
+CREATE PROCEDURE auto_update_Medical_leave
+    @request_id INT
+AS
+BEGIN
+    UPDATE Leave
+SET [status] = get_approval_status(@request_id, 'HR', 4)
+WHERE request_id = @request_id
+END
+GO
+
+CREATE PROCEDURE auto_update_Unpaid_leave_vdean
+    @request_id INT
+AS
+BEGIN
+    Declare @pre_approval_status VARCHAR(50) = get_approval_status_pres(@request_id)
+    DECLARE @hr_approval VARCHAR(50) = get_approval_status(@request_id, 'HR', 4)
+    DECLARE @Status VARCHAR(50) = CASE WHEN @pre_approval_status = 'Approved' AND @hr_approval = 'Approved' THEN 'Approved'
+    WHEN @pre_approval_status = 'Rejected' OR @hr_approval = 'Rejected' THEN 'Rejected'
+    ELSE 'Pending'
+    END
+    UPDATE Leave
+SET [status] = @Status
+WHERE request_id = @request_id
+END
+GO
+CREATE PROCEDURE auto_update_Unpaid_leave
+    @request_id INT
+AS
+BEGIN
+    DECLARE @Emp_dep VARCHAR(50)
+    DECLARE @emp_id INT
+
+    SELECT TOP 1
+        @Emp_dep = Emp_ID
+    FROM Unpaid_Leave
+    WHERE request_id = @Request_id
+
+    DECLARE @Rank INT = get_rank(@emp_id);
+
+    IF ((@Rank = 4 OR @Rank = 3) AND @Emp_dep != 'HR') 
+        THEN auto_update_Unpaid_leave_vdean
+    (@request_id)
+    ELSE
+    IF ()
+    DECLARE @higher_ranking_approval VARCHAR(50) = get_approval_status(@request_id, 'HR', 4)
+END
+
+DECLARE @higher_ranking_approval VARCHAR(50) = get_approval_status(@request_id, 'HR', 4)
+UPDATE Leave
+SET [status] = get_approval_status(@request_id, 'HR', 4)
+WHERE request_id = @request_id
+END
+GO
+
+
 

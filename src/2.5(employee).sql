@@ -105,7 +105,7 @@ BEGIN
         SELECT 1
     FROM LEAVE AS l
         INNER JOIN (
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                SELECT request_id
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    SELECT request_id
             FROM Annual_Leave
             WHERE emp_id = @Employee_ID
         UNION ALL
@@ -185,7 +185,7 @@ CREATE FUNCTION get_rank (@Employee_ID INT)
 RETURNS INT
 BEGIN
     DECLARE @rank INT;
-    SELECT @rank = MAX(rank)
+    SELECT @rank = MIN(rank)
     FROM Employee e
         INNER JOIN Employee_Role er ON er.emp_id = e.employee_id
         INNER JOIN Role r ON r.role_name = er.role_name
@@ -269,7 +269,7 @@ CREATE FUNCTION Status_leaves(@employee_ID INT)
 RETURNS TABLE
 AS
 RETURN (
-                            SELECT al.request_ID,
+                                SELECT al.request_ID,
         l.date_of_request,
         al.final_approval_status AS status
     FROM Annual_Leave aL
