@@ -1,4 +1,5 @@
 CREATE ROLE HR
+CREATE ROLE HR
 GO
 CREATE FUNCTION HRLoginValidation(@Employee_ID int, @Password varchar(50))--this has error invlaid column name for employee_ID and password
 RETURNS bit
@@ -183,17 +184,19 @@ BEGIN
 
     SET @HourlyRate = (@Salary / 22.0) / 8.0;
 
-    INSERT INTO Deduction (emp_ID, date, amount, attendance_ID, type)
+    INSERT INTO Deduction (emp_ID, [date], amount, attendance_ID, [type])
     SELECT 
         @employee_ID,
         
-        (SELECT TOP 1 a.date 
+        /*(SELECT TOP 1 a.date 
          FROM Attendance a
          WHERE a.emp_ID = @employee_ID 
            AND MONTH(a.date) = Shortfalls.MonthVal 
            AND YEAR(a.date) = Shortfalls.YearVal 
            AND DATEDIFF(hour, a.check_in_time, a.check_out_time) < 8 
-         ORDER BY a.date ASC), 
+         ORDER BY a.date ASC), */
+
+         CAST(GETDATE() AS DATE), -- current date as directed by ta
 
         Shortfalls.TotalMissingHours * @HourlyRate,
 
@@ -278,7 +281,8 @@ BEGIN
     INSERT INTO Deduction (emp_ID, date, amount, attendance_ID, type)
     SELECT 
         @employee_ID,
-        a.date,
+        a.date, 
+        --CAST(GETDATE() AS DATE), -- current date as directed by ta
         @DailyRate,
         a.attendance_ID,
         'missing_days'
@@ -325,7 +329,7 @@ BEGIN
     SELECT @TotalAmount = SUM (total_duration)
     FROM Attendance a
     WHERE a.emp_ID = @Employee_id
-        AND a.date >= DATEADD(day, -30, GETDATE());
+        AND a.date >= DATEADD(day, -30, GETDATE()); -- TODO Last day of the month
 
 
     SELECT @Salary = e.salary
@@ -375,6 +379,9 @@ BEGIN
             @Bouns_amount_val,
             @Deduction_amount_val
 	)
+    UPDATE deduction
+    SET [status] = 'Finalized'
+    WHERE date BETWEEN @From AND @To
 END
 GO
 
