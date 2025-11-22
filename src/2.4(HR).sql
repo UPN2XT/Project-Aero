@@ -1,4 +1,5 @@
 CREATE ROLE HR
+CREATE ROLE HR
 GO
 CREATE FUNCTION HRLoginValidation(@Employee_ID int, @Password varchar(50))--this has error invlaid column name for employee_ID and password
 RETURNS bit
@@ -119,12 +120,13 @@ GO
 -- 3.4 (g) TODO -- as2 note: g requires recursion or a more complex way of inserion that current ones or a way to devide the leaves according to month
 
 -- as2: the query is way too complex and I am not sure if its cully correct 
+/*
 CREATE PROCEDURE Deduction_hours
     @employee_ID int
 AS
 BEGIN
     DECLARE @rate DECIMAL(10,2);
-    SET @rate = Get_Salary(@employee_id) / 176;
+    SET @rate = Get_Salary(@employee_id) / 176 -- TODO 
     WITH
         q1
         AS
@@ -166,8 +168,71 @@ BEGIN
 
 END
 GO
+*/
+
+-- new 21/11
+CREATE PROCEDURE Deduction_hours
+    @employee_ID int
+AS
+BEGIN
+    DECLARE @HourlyRate DECIMAL(10, 2);
+    DECLARE @Salary DECIMAL(10, 2);
+
+    SELECT @Salary = salary 
+    FROM Employee 
+    WHERE employee_ID = @employee_ID;
+
+    SET @HourlyRate = (@Salary / 22.0) / 8.0;
+
+    INSERT INTO Deduction (emp_ID, [date], amount, attendance_ID, [type])
+    SELECT 
+        @employee_ID,
+        
+        /*(SELECT TOP 1 a.date 
+         FROM Attendance a
+         WHERE a.emp_ID = @employee_ID 
+           AND MONTH(a.date) = Shortfalls.MonthVal 
+           AND YEAR(a.date) = Shortfalls.YearVal 
+           AND DATEDIFF(hour, a.check_in_time, a.check_out_time) < 8 
+         ORDER BY a.date ASC), */
+
+         CAST(GETDATE() AS DATE), -- current date as directed by ta
+
+        Shortfalls.TotalMissingHours * @HourlyRate,
+
+        (SELECT TOP 1 a.attendance_ID 
+         FROM Attendance a 
+         WHERE a.emp_ID = @employee_ID 
+           AND MONTH(a.date) = Shortfalls.MonthVal 
+           AND YEAR(a.date) = Shortfalls.YearVal 
+           AND DATEDIFF(hour, a.check_in_time, a.check_out_time) < 8
+         ORDER BY a.date ASC),
+
+        'Missing hours'
+    FROM (
+        SELECT 
+            MONTH(date) AS MonthVal, 
+            YEAR(date) AS YearVal, 
+            SUM(8 - DATEDIFF(hour, check_in_time, check_out_time)) AS TotalMissingHours
+        FROM Attendance
+        WHERE emp_ID = @employee_ID 
+          AND status = 'Attended' 
+          AND DATEDIFF(hour, check_in_time, check_out_time) < 8
+        GROUP BY MONTH(date), YEAR(date)
+    ) AS Shortfalls
+    WHERE NOT EXISTS (
+        SELECT 1 
+        FROM Deduction d 
+        WHERE d.emp_ID = @employee_ID 
+          AND MONTH(d.date) = Shortfalls.MonthVal 
+          AND YEAR(d.date) = Shortfalls.YearVal
+          AND d.type = 'Missing hours'
+    );
+END;
+GO
 
 -- as2: not 100% sure about this
+/*
 CREATE PROCEDURE Deduction_days
     @employee_ID int
 AS
@@ -192,12 +257,55 @@ BEGIN
 
 END
 GO
+*/
 /*
 	Questions?
 	is the overtime calulated for last 30 days? month? this month? this needs answering
 	is overtime calculated if an employee stays more than 8 hours for a day or is it for total hours
 
 */
+
+-- new 21/11
+CREATE PROCEDURE Deduction_days
+    @employee_ID int
+AS
+BEGIN
+    DECLARE @DailyRate DECIMAL(10, 2);
+    DECLARE @OfficialDayOff VARCHAR(50);
+
+    SELECT @DailyRate = (salary / 22.0),
+           @OfficialDayOff = official_day_off
+    FROM Employee 
+    WHERE employee_ID = @employee_ID; 
+
+    INSERT INTO Deduction (emp_ID, date, amount, attendance_ID, type)
+    SELECT 
+        @employee_ID,
+        a.date, 
+        --CAST(GETDATE() AS DATE), -- current date as directed by ta
+        @DailyRate,
+        a.attendance_ID,
+        'missing_days'
+    FROM Attendance a
+    WHERE a.emp_ID = @employee_ID 
+      AND a.status = 'Absent'
+      
+      AND DATENAME(WEEKDAY, a.date) <> @OfficialDayOff
+      
+      AND NOT EXISTS (
+          SELECT 1 
+          FROM Holiday h 
+          WHERE a.date BETWEEN h.from_date AND h.to_date
+      )
+      AND dbo.Is_On_Leave(@employee_ID, a.date, a.date) = 0
+
+      AND NOT EXISTS (
+          SELECT 1 
+          FROM Deduction d 
+          WHERE d.attendance_ID = a.attendance_ID
+      );
+END;
+GO
 
 CREATE FUNCTION Get_Salary(@employee_id INT)--invalid column name here with employee_ID
 RETURNS DECIMAL(10,2)
@@ -221,7 +329,7 @@ BEGIN
     SELECT @TotalAmount = SUM (total_duration)
     FROM Attendance a
     WHERE a.emp_ID = @Employee_id
-        AND a.date >= DATEADD(day, -30, GETDATE());
+        AND a.date >= DATEADD(day, -30, GETDATE()); -- TODO Last day of the month
 
 
     SELECT @Salary = e.salary
@@ -271,6 +379,9 @@ BEGIN
             @Bouns_amount_val,
             @Deduction_amount_val
 	)
+    UPDATE deduction
+    SET [status] = 'Finalized'
+    WHERE date BETWEEN @From AND @To
 END
 GO
 

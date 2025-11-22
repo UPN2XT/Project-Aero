@@ -224,6 +224,16 @@ BEGIN
         (@request_id, @employee_id, @replacement_emp);
 
     IF EXISTS(
+        SELECT type_of_contract
+        FROM Employee
+        WHERE @employee_ID = employee_ID AND type_of_contract = 'Part time'
+    )
+    BEGIN
+    PRINT 'Error: Part time employees are not eligble for annual leave';
+        RETURN;
+    END
+
+    IF EXISTS(
         SELECT employee_ID
     FROM Employee
     WHERE employee_ID = @employee_ID

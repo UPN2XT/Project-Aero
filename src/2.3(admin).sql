@@ -249,7 +249,8 @@ GO
 
 -- end of as2 check by omar ahmed
 -- bv1 checked: unit test to be created need to check if will need to do more than just insert to table
-CREATE PROCEDURE Replace_employee
+/*
+CREATE PROCEDURE Replace_employee--todo
     @Emp1_ID int,
     @Emp2_ID int,
     @from_date date,
@@ -259,4 +260,89 @@ INSERT INTO Employee_Replace_Employee
     (Emp1_ID, Emp2_ID, from_date, to_date)
 VALUES
     (@Emp1_ID, @Emp2_ID, @from_date, @to_date);
+GO
+*/
+
+-- New 21/11
+CREATE PROCEDURE Replace_employee
+    @Emp1_ID int,
+    @Emp2_ID int,
+    @from_date date,
+    @to_date date
+AS
+BEGIN
+    IF @from_date > @to_date
+    BEGIN
+        PRINT 'Error: The start date cannot be after the end date.';
+        RETURN;
+    END
+
+    IF @Emp1_ID = @Emp2_ID
+    BEGIN
+        PRINT 'Error: An employee cannot replace themselves.';
+        RETURN;
+    END
+
+    IF EXISTS (
+        SELECT 1 
+        FROM Employee 
+        WHERE employee_ID = @Emp2_ID AND employment_status = 'resigned'
+    )
+    BEGIN
+        PRINT 'Error: The replacement employee has resigned and cannot be assigned tasks.';
+        RETURN;
+    END
+
+    DECLARE @Dept1 varchar(50);
+    DECLARE @Dept2 varchar(50);
+    
+    SELECT @Dept1 = dept_name FROM Employee WHERE employee_ID = @Emp1_ID;
+    SELECT @Dept2 = dept_name FROM Employee WHERE employee_ID = @Emp2_ID;
+    
+
+    IF @Dept1 <> @Dept2
+    BEGIN
+        PRINT 'Error: Employees must belong to the same department.';
+        RETURN;
+    END
+
+    IF dbo.Is_On_Leave(@Emp1_ID, @from_date, @to_date) = 0
+    BEGIN
+        PRINT 'Error: Employee 1 is not on approved/pending leave during this period, so they cannot be replaced.';
+        RETURN;
+    END
+
+    IF dbo.Is_On_Leave(@Emp2_ID, @from_date, @to_date) = 1
+    BEGIN
+        PRINT 'Error: The replacement employee (Emp2) is on leave during this period.';
+        RETURN;
+    END
+
+    -- I am not sure about this one. If i remeber correctly an employee is allowed to replace several employees so in that case this condition should be removed.
+    IF EXISTS (
+        SELECT 1 
+        FROM Employee_Replace_Employee 
+        WHERE replacement_id = @Emp2_ID 
+          AND (from_date <= @to_date AND to_date >= @from_date)
+    )
+    BEGIN
+        PRINT 'Error: The replacement employee is already busy replacing someone else during this period.';
+        RETURN;
+    END
+
+    IF EXISTS (
+        SELECT 1 
+        FROM Employee_Replace_Employee 
+        WHERE employee_id = @Emp1_ID 
+          AND (from_date <= @to_date AND to_date >= @from_date)
+    )
+    BEGIN
+        PRINT 'Error: Employee 1 already has a replacement registered for this period.';
+        RETURN;
+    END
+
+    INSERT INTO Employee_Replace_Employee (employee_id, replacement_id, from_date, to_date)
+    VALUES (@Emp1_ID, @Emp2_ID, @from_date, @to_date);
+
+END;
 GO
