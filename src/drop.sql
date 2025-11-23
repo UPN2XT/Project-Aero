@@ -22,33 +22,53 @@ DROP TABLE Employee
 DROP TABLE Department
 GO
 
-CREATE PROC dropAllProceduresFunctionsViews/*still needs to add more procs and views as we continue*/
+CREATE PROCEDURE dropAllProceduresFunctionsViews
 AS
-DROP PROC dropAllTables
-DROP PROC createAllTables
-DROP VIEW allEmploteeProfiles
-DROP VIEW NoEmployeeDept
-DROP VIEW allPerformance
-DROP VIEW allRejectedMedicals
-DROP VIEW allEmployeeAttendance
-DROP PROC clearAllTables
-DROP PROC CalculateEmployeeSalary
-DROP PROC Update_Status_Doc
-DROP PROC Remove_Deductions
-DROP PROC Update_Employment_Status
-DROP PROC Create_Holiday
-DROP PROC Add_Holiday
-DROP PROC Intitiate_Attendance
-DROP PROC Update_Attendance
-DROP PROC Remove_Holiday
-DROP PROC Remove_DayOff
-DROP PROC Remove_Approved_Leaves
-DROP PROC Replace_employee
-DROP PROC HR_approval_an_acc
-DROP PROC HR_approval_unpaid
-DROP PROC HR_approval_comp
-DROP PROC Deduction_hours
-DROP PROC Deduction_days
-DROP PROC Add_Payroll
-DROP PROC Replace_employee
+BEGIN
+    DROP FUNCTION IF EXISTS HRLoginValidation
+    DROP FUNCTION IF EXISTS Bonus_amount
+    DROP FUNCTION IF EXISTS EmployeeLoginValidation
+    DROP FUNCTION IF EXISTS MyPerformance
+    DROP FUNCTION IF EXISTS MyAttendance
+    DROP FUNCTION IF EXISTS Last_month_payroll
+    DROP FUNCTION IF EXISTS Deductions_Attendance
+    DROP FUNCTION IF EXISTS Is_On_Leave
+    DROP FUNCTION IF EXISTS Status_leaves
+
+    DROP VIEW IF EXISTS allEmployeeProfiles
+    DROP VIEW IF EXISTS NoEmployeeDept
+    DROP VIEW IF EXISTS allPerformance
+    DROP VIEW IF EXISTS allRejectedMedicals
+    DROP VIEW IF EXISTS allEmployeeAttendance
+
+    DROP PROCEDURE IF EXISTS createAllTables
+    DROP PROCEDURE IF EXISTS dropAllTables
+    DROP PROCEDURE IF EXISTS clearAllTables
+    DROP PROCEDURE IF EXISTS Update_Status_Doc
+    DROP PROCEDURE IF EXISTS Remove_Deductions
+    DROP PROCEDURE IF EXISTS Update_Employment_Status
+    DROP PROCEDURE IF EXISTS Create_Holiday
+    DROP PROCEDURE IF EXISTS Add_Holiday
+    DROP PROCEDURE IF EXISTS Intitiate_Attendance
+    DROP PROCEDURE IF EXISTS Update_Attendance
+    DROP PROCEDURE IF EXISTS Remove_Holiday
+    DROP PROCEDURE IF EXISTS Remove_DayOff
+    DROP PROCEDURE IF EXISTS Remove_Approved_Leaves
+    DROP PROCEDURE IF EXISTS Replace_employee
+    DROP PROCEDURE IF EXISTS HR_approval_an_acc
+    DROP PROCEDURE IF EXISTS HR_approval_unpaid
+    DROP PROCEDURE IF EXISTS HR_approval_comp
+    DROP PROCEDURE IF EXISTS Deduction_hours
+    DROP PROCEDURE IF EXISTS Deduction_days
+    DROP PROCEDURE IF EXISTS Deduction_unpaid
+    DROP PROCEDURE IF EXISTS Add_Payroll
+    DROP PROCEDURE IF EXISTS Submit_annual
+    DROP PROCEDURE IF EXISTS Upperboard_approve_annual
+    DROP PROCEDURE IF EXISTS Submit_accidental
+    DROP PROCEDURE IF EXISTS Submit_medical
+    DROP PROCEDURE IF EXISTS Submit_unpaid
+    DROP PROCEDURE IF EXISTS Upperboard_approve_unpaids
+    DROP PROCEDURE IF EXISTS Submit_compensation
+    DROP PROCEDURE IF EXISTS Dean_andHR_Evaluation
+END
 GO

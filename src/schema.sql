@@ -82,7 +82,8 @@ CREATE TABLE Leave
     date_of_request DATE,
     start_date DATE,
     end_date DATE,
-    num_days AS DATEDIFF(DAY,start_date,end_date), --fixed this as regular subtraction wasnt working
+    num_days AS DATEDIFF(DAY,start_date,end_date) + 1,
+    --fixed this as regular subtraction wasnt working
     final_approval_status VARCHAR(50) CHECK (final_approval_status IN ('Approved', 'Rejected', 'Pending')) DEFAULT 'Pending',
 );
 
@@ -207,9 +208,10 @@ CREATE TABLE Performance
 
 CREATE TABLE Employee_Replace_Employee
 (
+    Table_ID INT IDENTITY(1,1),
     Emp1_ID INT,
     Emp2_ID INT,
-    PRIMARY KEY(Emp1_ID,Emp2_ID),
+    PRIMARY KEY(Table_ID, Emp1_ID,Emp2_ID),
     from_date DATE,
     to_date DATE,
     FOREIGN KEY (Emp1_ID) REFERENCES Employee(employee_ID),
@@ -221,7 +223,7 @@ CREATE TABLE Employee_Approve_Leave
     Emp1_ID INT,
     Leave_ID INT,
     PRIMARY KEY(Emp1_ID,Leave_ID),
-    status VARCHAR(50), 
+    status VARCHAR(50),
     FOREIGN KEY (Emp1_ID) REFERENCES Employee(employee_ID),
     FOREIGN KEY (Leave_ID) REFERENCES Leave(request_ID),
 );
