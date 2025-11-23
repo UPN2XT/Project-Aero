@@ -105,7 +105,7 @@ BEGIN
         SELECT 1
     FROM LEAVE AS l
         INNER JOIN (
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    SELECT request_id
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                SELECT request_id
             FROM Annual_Leave
             WHERE emp_id = @Employee_ID
         UNION ALL
@@ -225,11 +225,11 @@ BEGIN
 
     IF EXISTS(
         SELECT type_of_contract
-        FROM Employee
-        WHERE @employee_ID = employee_ID AND type_of_contract = 'Part time'
+    FROM Employee
+    WHERE @employee_ID = employee_ID AND type_of_contract = 'Part time'
     )
     BEGIN
-    PRINT 'Error: Part time employees are not eligble for annual leave';
+        PRINT 'Error: Part time employees are not eligble for annual leave';
         RETURN;
     END
 
@@ -279,7 +279,7 @@ CREATE FUNCTION Status_leaves(@employee_ID INT)
 RETURNS TABLE
 AS
 RETURN (
-                                SELECT al.request_ID,
+                                            SELECT al.request_ID,
         l.date_of_request,
         al.final_approval_status AS status
     FROM Annual_Leave aL
@@ -320,6 +320,7 @@ WHERE e.dept_name = e1.dept_name
                 ) then 'Approved' ELSE 'Rejected'
             END
             WHERE Emp1_ID = @Upperboard_ID AND Leave_ID=@request_id
+EXEC auto_update_annual @request_id;
 GO
 
 -- My new function
