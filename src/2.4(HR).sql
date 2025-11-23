@@ -22,6 +22,16 @@ CREATE PROCEDURE HR_approval_an_acc--11/14 dont we need to check if the employee
     @HR_ID int
 AS
 BEGIN
+    
+    if EXISTS(
+    SELECT eal.[status] from Employee_Approve_Leave eal
+    WHERE @request_ID = eal.Leave_ID AND EXISTS(SELECT eal2.[status] from Employee_Approve_Leave eal2
+    WHERE eal2.[status]='Rejected' and @request_ID = eal.Leave_ID))
+    BEGIN 
+       print 'Error:employee within the hierarchy rejected the leave'
+       RETURN;
+    END;
+
     IF @request_ID IN (                                                                                                                                                SELECT request_id
         FROM Accidental_Leave
     UNION
@@ -69,6 +79,16 @@ CREATE PROCEDURE HR_approval_unpaid
     @HR_ID int
 AS
 BEGIN
+
+    if EXISTS(
+    SELECT eal.[status] from Employee_Approve_Leave eal
+    WHERE @request_ID = eal.Leave_ID AND EXISTS(SELECT eal2.[status] from Employee_Approve_Leave eal2
+    WHERE eal2.[status]='Rejected' and @request_ID = eal.Leave_ID))
+    BEGIN 
+       print 'Error:employee within the hierarchy rejected the leave'
+       RETURN;
+    END;
+
     IF @request_ID IN (SELECT request_id
     FROM Unpaid_Leave)
 UPDATE Employee_Approve_Leave
@@ -99,6 +119,16 @@ CREATE PROCEDURE HR_approval_comp
     @HR_ID int
 AS
 BEGIN
+
+if EXISTS(
+    SELECT eal.[status] from Employee_Approve_Leave eal
+    WHERE @request_ID = eal.Leave_ID AND EXISTS(SELECT eal2.[status] from Employee_Approve_Leave eal2
+    WHERE eal2.[status]='Rejected' and @request_ID = eal.Leave_ID))
+    BEGIN 
+       print 'Error:employee within the hierarchy rejected the leave'
+       RETURN;
+    END;
+
     IF @request_ID IN (SELECT request_id
     FROM Compensation_Leave)
 UPDATE Employee_Approve_Leave
@@ -318,7 +348,7 @@ BEGIN
 END;
 GO
 
-CREATE FUNCTION Get_Salary(@employee_id INT)--invalid column name here with employee_ID
+CREATE FUNCTION Get_Salary(@employee_id INT)
 RETURNS DECIMAL(10,2)
 BEGIN
     DECLARE @Salary DECIMAL(10,2);
@@ -329,7 +359,7 @@ BEGIN
 END
 GO
 
-CREATE FUNCTION Bonus_amount(@employee_ID INT)--invalid column name here with employee_ID
+CREATE FUNCTION Bonus_amount(@employee_ID INT)
 RETURNS DECIMAL(10,2)
 BEGIN
     DECLARE @TotalAmount DECIMAL(10, 2);
@@ -397,7 +427,7 @@ BEGIN
 END
 GO
 
-CREATE FUNCTION get_approval_status(@Request_ID INT, @Dep_name VARCHAR(50), @Min_Rank INT)
+CREATE FUNCTION get_approval_status(@Request_ID INT, @Dep_name VARCHAR(50), @Min_Rank INT)--TODO add fourth input incase of hr to know who dep they represent
 RETURNS VARCHAR(50)
 AS
 BEGIN
@@ -568,7 +598,7 @@ BEGIN
         FROM Leave
         WHERE @request_ID = request_ID
 
-        SET @emp_approve_emp = dbo.get_approval_status(@request_ID, 'HR_Representative' + @department, 4)
+        SET @emp_approve_emp = dbo.get_approval_status(@request_ID, 'HR_Representative' +'_' +@department, 4)
         -- Get hr approval
         IF @Emp1_ID_rank = 3 AND dbo.Is_On_Leave(@Emp1_ID_rank, @from_date, @end_date) = 0 -- I think there is a problem here (The logic of it doesn't make sense to me) (@Emp1_ID_rank = 3 => ??????)
         BEGIN
@@ -798,20 +828,6 @@ BEGIN
     END
 END
 GO
-
-CREATE PROCEDURE auto_update_comp--todo
-/*
-comp leaves should only be approved by the hr according to the descriptions
-do we have cases where pres or vice pres are the ones to have comp leaves?
-+ wouldnt the code be the same as the hr_approval_comp one?, since i first need to check if the comp leave info is valid
-ex: theyre actually working on their day off and requested leave is in this month + theres an employee to replace them
-*/
-    @request_ID int 
-AS 
-BEGIN
-END
-GO
-
 
 
 

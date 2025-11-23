@@ -203,6 +203,8 @@ CREATE PROCEDURE Submit_annual
     @start_date DATE,
     @end_date DATE
 AS
+DECLARE @dep_name_replacement varchar(50);
+DECLARE @my_dept varchar(50);
 BEGIN
     DECLARE @request_ID INT;
     DECLARE @rank INT;
@@ -230,6 +232,29 @@ BEGIN
     )
     BEGIN
         PRINT 'Error: Part time employees are not eligble for annual leave';
+        RETURN;
+    END
+
+  -- Check C: getting my department
+    SELECT @my_dept = dept_name
+    FROM Employee
+    WHERE employee_ID = @employee_ID;
+
+    --get dep of replacment employee
+    SELECT @dep_name_replacement = dept_name FROM Employee e
+    WHERE e.employee_ID = @replacement_ID
+
+    --check if replacment employee is on leave
+    IF is_on_leave(@replacement_emp, @compensation_date, @compensation_date) = 1
+    BEGIN
+        PRINT 'Error: replacment employee is on leave'
+        RETURN;
+    END
+
+    --check if both employees are the same department
+     IF @my_dept <> @dep_name_replacement
+    BEGIN
+        PRINT 'Error: replacement employee is not from the same department'
         RETURN;
     END
 
@@ -299,7 +324,7 @@ GO
 
 -- as3
 -- when rejected leave status should be updated aswll
-CREATE PROCEDURE Upperboard_approve_annual
+CREATE PROCEDURE Upperboard_approve_annual--TODO check if dean is on leave to let vice dean take over 
     -- Goal: As a Dean/Vice-dean/President I can approve/reject annual leaves. 
     --In case the person of replacement isn't on leave and works in the same department, the leave gets approved.
     @request_ID INT,
@@ -738,6 +763,8 @@ CREATE PROCEDURE Submit_compensation
     @date_of_original_workday DATE,
     @replacement_emp INT
 AS
+DECLARE @dep_name_replacement varchar(50);
+DECLARE @my_dept varchar(50);
 BEGIN
     IF MONTH(GETDATE()) <> MONTH(@date_of_original_workday) OR YEAR(GETDATE()) <> YEAR(@date_of_original_workday)
     BEGIN
@@ -759,11 +786,29 @@ BEGIN
         RETURN;
     END
 
-    -- Check C: Verify that @date_of_original_workday was actually their "Official Day Off"
+    -- Check C: Verify that @date_of_original_workday was actually their "Official Day Off" and get their dept
     DECLARE @official_day_off VARCHAR(50);
-    SELECT @official_day_off = official_day_off
+    SELECT @official_day_off = official_day_off,@my_dept = dept_name
     FROM Employee
     WHERE employee_ID = @employee_ID;
+
+    --get dep of replacment employee
+    SELECT @dep_name_replacement = dept_name FROM Employee e
+    WHERE e.employee_ID = @replacement_ID
+
+    --check if replacment employee is on leave
+    IF is_on_leave(@replacement_emp, @compensation_date, @compensation_date) = 1
+    BEGIN
+        PRINT 'Error: replacment employee is on leave'
+        RETURN;
+    END
+
+    --check if both employees are the same department
+     IF @my_dept <> @dep_name_replacement
+    BEGIN
+        PRINT 'Error: replacement employee is not from the same department'
+        RETURN;
+    END
 
     -- DATENAME returns 'Saturday', 'Sunday', etc. matching the expected format of official_day_off
     -- Not sure of this one
@@ -818,27 +863,7 @@ BEGIN
             AND r.rank < @rank
         GROUP BY e.employee_id
     END
-
-    -- Case B: Dean/Vice Dean -> Need approval from President/Vice President (Rank 1 or 2)
-    ELSE IF EXISTS (
-        SELECT e.employee_id
-    FROM Employee e
-        INNER JOIN Employee_Role er ON er.emp_id = e.employee_id
-        INNER JOIN Role r ON r.role_name = er.role_name
-    WHERE e.employee_id = @employee_id
-        AND r.role_name IN ('Dean', 'Vice Dean')
-    )
-    BEGIN
-        INSERT INTO Employee_Approve_Leave
-            (Emp1_ID, Leave_ID)
-        SELECT e.employee_id, @request_id
-        FROM Employee e
-            INNER JOIN Employee_Role er ON er.emp_id = e.employee_id
-            INNER JOIN Role r ON r.role_name = er.role_name
-        WHERE r.rank <= 2
-    END
-
-    -- Case C: Regular employees -> Need approval from their Dean AND HR
+    --case where employee is dean/vice dean or regular
     ELSE
     BEGIN
         INSERT INTO Employee_Approve_Leave
@@ -847,8 +872,7 @@ BEGIN
         FROM Employee e
             INNER JOIN Employee_Role er ON er.emp_id = e.employee_id
             INNER JOIN Role r ON r.role_name = er.role_name
-        WHERE (r.role_name = 'Dean' AND e.dept_name = @dept_name)
-            OR e.dept_name = 'HR'
+        WHERE e.dept_name = 'HR'
     END
 END
 GO
