@@ -799,10 +799,18 @@ BEGIN
 END
 GO
 
-CREATE PROCEDURE auto_update_comp--according to the description, compensation leaves should be approved by the employees hr, tho do we have a case where the employee could be pres or vice pres?
+CREATE PROCEDURE auto_update_comp--todo
+/*
+comp leaves should only be approved by the hr according to the descriptions
+do we have cases where pres or vice pres are the ones to have comp leaves?
++ wouldnt the code be the same as the hr_approval_comp one?, since i first need to check if the comp leave info is valid
+ex: theyre actually working on their day off and requested leave is in this month + theres an employee to replace them
+*/
     @request_ID int 
 AS 
 BEGIN
+END
+GO
 
 
 
