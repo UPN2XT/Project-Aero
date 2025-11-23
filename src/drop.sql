@@ -34,6 +34,9 @@ BEGIN
     DROP FUNCTION IF EXISTS Deductions_Attendance
     DROP FUNCTION IF EXISTS Is_On_Leave
     DROP FUNCTION IF EXISTS Status_leaves
+    DROP FUNCTION IF EXISTS get_approval_status
+    DROP FUNCTION IF EXISTS get_approval_status_pres
+    DROP FUNCTION IF EXISTS get_rank
 
     DROP VIEW IF EXISTS allEmployeeProfiles
     DROP VIEW IF EXISTS NoEmployeeDept
@@ -70,5 +73,9 @@ BEGIN
     DROP PROCEDURE IF EXISTS Upperboard_approve_unpaids
     DROP PROCEDURE IF EXISTS Submit_compensation
     DROP PROCEDURE IF EXISTS Dean_andHR_Evaluation
+    DROP PROCEDURE IF EXISTS auto_update_accedintal_leave
+    DROP PROCEDURE IF EXISTS auto_update_Medical_leave
+    DROP PROCEDURE IF EXISTS auto_update_Unpaid_leave
+    DROP PROCEDURE IF EXISTS auto_update_annual
 END
 GO

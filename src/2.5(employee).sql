@@ -105,7 +105,7 @@ BEGIN
         SELECT 1
     FROM LEAVE AS l
         INNER JOIN (
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                SELECT request_id
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    SELECT request_id
             FROM Annual_Leave
             WHERE emp_id = @Employee_ID
         UNION ALL
@@ -235,13 +235,14 @@ BEGIN
         RETURN;
     END
 
-  -- Check C: getting my department
+    -- Check C: getting my department
     SELECT @my_dept = dept_name
     FROM Employee
     WHERE employee_ID = @employee_ID;
 
     --get dep of replacment employee
-    SELECT @dep_name_replacement = dept_name FROM Employee e
+    SELECT @dep_name_replacement = dept_name
+    FROM Employee e
     WHERE e.employee_ID = @replacement_ID
 
     --check if replacment employee is on leave
@@ -252,7 +253,7 @@ BEGIN
     END
 
     --check if both employees are the same department
-     IF @my_dept <> @dep_name_replacement
+    IF @my_dept <> @dep_name_replacement
     BEGIN
         PRINT 'Error: replacement employee is not from the same department'
         RETURN;
@@ -304,7 +305,7 @@ CREATE FUNCTION Status_leaves(@employee_ID INT)
 RETURNS TABLE
 AS
 RETURN (
-                                            SELECT al.request_ID,
+                                                SELECT al.request_ID,
         l.date_of_request,
         al.final_approval_status AS status
     FROM Annual_Leave aL
@@ -788,12 +789,13 @@ BEGIN
 
     -- Check C: Verify that @date_of_original_workday was actually their "Official Day Off" and get their dept
     DECLARE @official_day_off VARCHAR(50);
-    SELECT @official_day_off = official_day_off,@my_dept = dept_name
+    SELECT @official_day_off = official_day_off, @my_dept = dept_name
     FROM Employee
     WHERE employee_ID = @employee_ID;
 
     --get dep of replacment employee
-    SELECT @dep_name_replacement = dept_name FROM Employee e
+    SELECT @dep_name_replacement = dept_name
+    FROM Employee e
     WHERE e.employee_ID = @replacement_ID
 
     --check if replacment employee is on leave
@@ -804,7 +806,7 @@ BEGIN
     END
 
     --check if both employees are the same department
-     IF @my_dept <> @dep_name_replacement
+    IF @my_dept <> @dep_name_replacement
     BEGIN
         PRINT 'Error: replacement employee is not from the same department'
         RETURN;

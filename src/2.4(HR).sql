@@ -22,17 +22,19 @@ CREATE PROCEDURE HR_approval_an_acc--11/14 dont we need to check if the employee
     @HR_ID int
 AS
 BEGIN
-    
+
     if EXISTS(
-    SELECT eal.[status] from Employee_Approve_Leave eal
-    WHERE @request_ID = eal.Leave_ID AND EXISTS(SELECT eal2.[status] from Employee_Approve_Leave eal2
-    WHERE eal2.[status]='Rejected' and @request_ID = eal.Leave_ID))
-    BEGIN 
-       print 'Error:employee within the hierarchy rejected the leave'
-       RETURN;
+    SELECT eal.[status]
+    from Employee_Approve_Leave eal
+    WHERE @request_ID = eal.Leave_ID AND EXISTS(SELECT eal2.[status]
+        from Employee_Approve_Leave eal2
+        WHERE eal2.[status]='Rejected' and @request_ID = eal.Leave_ID))
+    BEGIN
+        print 'Error:employee within the hierarchy rejected the leave'
+        RETURN;
     END;
 
-    IF @request_ID IN (                                                                                                                                                SELECT request_id
+    IF @request_ID IN (                                                                                                                                                        SELECT request_id
         FROM Accidental_Leave
     UNION
         SELECT request_id
@@ -81,12 +83,14 @@ AS
 BEGIN
 
     if EXISTS(
-    SELECT eal.[status] from Employee_Approve_Leave eal
-    WHERE @request_ID = eal.Leave_ID AND EXISTS(SELECT eal2.[status] from Employee_Approve_Leave eal2
-    WHERE eal2.[status]='Rejected' and @request_ID = eal.Leave_ID))
-    BEGIN 
-       print 'Error:employee within the hierarchy rejected the leave'
-       RETURN;
+    SELECT eal.[status]
+    from Employee_Approve_Leave eal
+    WHERE @request_ID = eal.Leave_ID AND EXISTS(SELECT eal2.[status]
+        from Employee_Approve_Leave eal2
+        WHERE eal2.[status]='Rejected' and @request_ID = eal.Leave_ID))
+    BEGIN
+        print 'Error:employee within the hierarchy rejected the leave'
+        RETURN;
     END;
 
     IF @request_ID IN (SELECT request_id
@@ -120,13 +124,15 @@ CREATE PROCEDURE HR_approval_comp
 AS
 BEGIN
 
-if EXISTS(
-    SELECT eal.[status] from Employee_Approve_Leave eal
-    WHERE @request_ID = eal.Leave_ID AND EXISTS(SELECT eal2.[status] from Employee_Approve_Leave eal2
-    WHERE eal2.[status]='Rejected' and @request_ID = eal.Leave_ID))
-    BEGIN 
-       print 'Error:employee within the hierarchy rejected the leave'
-       RETURN;
+    if EXISTS(
+    SELECT eal.[status]
+    from Employee_Approve_Leave eal
+    WHERE @request_ID = eal.Leave_ID AND EXISTS(SELECT eal2.[status]
+        from Employee_Approve_Leave eal2
+        WHERE eal2.[status]='Rejected' and @request_ID = eal.Leave_ID))
+    BEGIN
+        print 'Error:employee within the hierarchy rejected the leave'
+        RETURN;
     END;
 
     IF @request_ID IN (SELECT request_id
