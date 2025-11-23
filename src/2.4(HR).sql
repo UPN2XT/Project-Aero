@@ -568,17 +568,17 @@ BEGIN
         FROM Leave
         WHERE @request_ID = request_ID
 
-        SET @emp_approve_emp = dbo.get_approval_status_from_hr(@request_ID, 'HR_Representative' + @department, 4)
+        SET @emp_approve_emp = dbo.get_approval_status(@request_ID, 'HR_Representative' + @department, 4)
         -- Get hr approval
         IF @Emp1_ID_rank = 3 AND dbo.Is_On_Leave(@Emp1_ID_rank, @from_date, @end_date) = 0 -- I think there is a problem here (The logic of it doesn't make sense to me) (@Emp1_ID_rank = 3 => ??????)
         BEGIN
-            SET @upperboard_approve = dbo.get_approval_status_from_hr(@request_ID, @department, 3)
+            SET @upperboard_approve = dbo.get_approval_status(@request_ID, @department, 3)
         -- get dean approval
         END;
 
         ELSE
         BEGIN
-            SET @upperboard_approve = dbo.get_approval_status_from_hr(@request_ID, @department, 4)
+            SET @upperboard_approve = dbo.get_approval_status(@request_ID, @department, 4)
         -- get vice-dean approval in case dean is on leave
         END;
 
@@ -600,9 +600,9 @@ BEGIN
     -- Case 2: Employee is a dean or vice-dean ranks 3 or 4 (Needs hr approval and upperboard approval => president or vice-president)
     ELSE IF (@rank=3 AND @deparment <>  'HR') OR (@rank=4 AND @deparment <>  'HR')
     BEGIN
-        SET @emp_approve_emp = dbo.get_approval_status_from_hr(@request_ID, 'HR_Representative' + @department, 4)
+        SET @emp_approve_emp = dbo.get_approval_status(@request_ID, 'HR_Representative' + @department, 4)
         -- Gets hr approval
-        SET @upperboard_approve = dbo.get_approval_status_from_upperboard(@request_ID)
+        SET @upperboard_approve = dbo.get_approval_status_pres(@request_ID)
         -- This should be replaced by the function that omar made that checks if president/vice-president approved leave
 
         IF @emp_approve_emp = 'Approved' AND @upperboard_approve = 'Approved'
@@ -623,7 +623,7 @@ BEGIN
     -- Case 3: Hr request for leave (Needs approval from higher rank HR)
     ELSE IF (@rank = 4 AND @deparment = 'HR')
     BEGIN
-        SET @emp_approve_emp = dbo.get_approval_status_from_hr(@request_ID, 'HR_Representative' + @department, 3)
+        SET @emp_approve_emp = dbo.get_approval_status(@request_ID, 'HR_Representative' + @department, 3)
         -- Gets approval from higher rank HR
         IF @emp_approve_emp = 'Approved'
         BEGIN
@@ -798,6 +798,11 @@ BEGIN
     END
 END
 GO
+
+CREATE PROCEDURE auto_update_comp--according to the description, compensation leaves should be approved by the employees hr, tho do we have a case where the employee could be pres or vice pres?
+    @request_ID int 
+AS 
+BEGIN
 
 
 

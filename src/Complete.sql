@@ -254,7 +254,7 @@ DROP TABLE Employee
 DROP TABLE Department
 GO
 
-CREATE PROC dropAllProceduresFunctionsViews/*still needs to add more procs and views as we continue*/
+CREATE PROC dropAllProceduresFunctionsViews--not sure if the auto_update procs need to be added here as well
 AS
 DROP PROC dropAllTables
 DROP PROC createAllTables
@@ -283,6 +283,23 @@ DROP PROC Deduction_hours
 DROP PROC Deduction_days
 DROP PROC Add_Payroll
 DROP PROC Replace_employee
+DROP PROC HR_approval_an_acc
+DROP PROC HR_approval_unpaid
+DROP PROC HR_approval_comp
+DROP PROC Deduction_hours
+DROP PROC Deduction_days
+DROP PROC  Deduction_unpaid
+DROP PROC Bonus_amount
+DROP PROC Add_Payroll
+DROP PROC Submit_annual
+DROP PROC  Status_leaves
+DROP PROC Upperboard_approve_annual
+DROP PROC Submit_accidental
+DROP PROC Submit_medical
+DROP PROC  Submit_unpaid
+DROP PROC Upperboard_approve_unpaids
+DROP PROC  Submit_compensation
+DROP PROC Dean_andHR_Evaluation
 GO
 
 CREATE PROC  clearAllTables
@@ -889,7 +906,7 @@ GO
 
 
 -- Different from OG code
-CREATE PROCEDURE HR_approval_comp
+CREATE PROCEDURE HR_approval_comp--TODO this needs to check if there exists an employee to replace the employee on leave
     @request_ID int,
     @HR_ID int
 AS
@@ -1330,7 +1347,7 @@ CREATE FUNCTION get_rank (@Employee_ID INT)
 RETURNS INT
 BEGIN
     DECLARE @rank INT;
-    SELECT @rank = MAX(rank)
+    SELECT @rank = MIN(rank)
     FROM Employee e
         INNER JOIN Employee_Role er ON er.emp_id = e.employee_id
         INNER JOIN Role r ON r.role_name = er.role_name
@@ -1475,11 +1492,7 @@ BEGIN
     DECLARE @dept_name VARCHAR(50); 
 
     -- Get the employee's rank
-    SELECT @rank = MAX(r.rank)
-    FROM Employee e
-    INNER JOIN Employee_Role er ON er.emp_id = e.employee_ID
-    INNER JOIN Role r ON r.role_name = er.role_name
-    WHERE e.employee_ID = @Employee_ID;
+    SELECT @rank =get_rank(@employee_ID)
 
     -- Get the employee's department
     SELECT @dept_name = dept_name
@@ -1587,12 +1600,7 @@ BEGIN
     DECLARE @dept_name VARCHAR(50);
 
     -- Get the employee's rank
-    SELECT @rank = MAX(r.rank)
-    FROM Employee e
-    INNER JOIN Employee_Role er ON er.emp_id = e.employee_ID
-    INNER JOIN Role r ON r.role_name = er.role_name
-    WHERE e.employee_ID = @Employee_ID;
-
+    SELECT @rank = get_rank(@employee_ID)
     -- Get the employee's department
     SELECT @dept_name = dept_name
     FROM Employee
@@ -1801,7 +1809,7 @@ BEGIN
 END
 GO
 
-CREATE PROCEDURE Submit_compensation
+CREATE PROCEDURE Submit_compensation--TODO this should only be approved by the employees hr rep according to the description from ms 1 and 2
 -- Goal: Apply for a compensation leave. Populate the approval table
 -- accordingly with the corresponding employees for the leaves’ approval based on the hierarchy
     @employee_ID INT,
@@ -1850,7 +1858,7 @@ BEGIN
     DECLARE @dept_name VARCHAR(50);
 
     -- Get the employee's rank and department for Approval Logic
-    SELECT @rank = MAX(r.rank), 
+    SELECT @rank = MIN(r.rank), 
     @dept_name = e.dept_name
     FROM Employee e
     INNER JOIN Employee_Role er ON er.emp_id = e.employee_id
