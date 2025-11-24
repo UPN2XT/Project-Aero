@@ -99,39 +99,23 @@ RETURNS BIT
 AS
 BEGIN
     DECLARE @Onleave BIT = 0;
-
     IF EXISTS (
-        -- We moved the logic from the CTE directly into this subquery
         SELECT 1
-    FROM LEAVE AS l
+        FROM LEAVE AS l
         INNER JOIN (
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    SELECT request_id
-            FROM Annual_Leave
-            WHERE emp_id = @Employee_ID
-        UNION ALL
-            SELECT request_id
-            FROM Accidental_Leave
-            WHERE emp_id = @Employee_ID
-        UNION ALL
-            SELECT request_id
-            FROM Medical_Leave
-            WHERE emp_id = @Employee_ID
-        UNION ALL
-            SELECT request_id
-            FROM Unpaid_Leave
-            WHERE emp_id = @Employee_ID
-        UNION ALL
-            SELECT request_id
-            FROM Compensation_Leave
-            WHERE emp_id = @Employee_ID
-        ) AS subleaves
-        ON l.request_id = subleaves.request_id
+            SELECT request_id FROM Annual_Leave WHERE emp_id = @Employee_ID
+            UNION ALL SELECT request_id FROM Accidental_Leave WHERE emp_id = @Employee_ID
+            UNION ALL SELECT request_id FROM Medical_Leave WHERE emp_id = @Employee_ID
+            UNION ALL SELECT request_id FROM Unpaid_Leave WHERE emp_id = @Employee_ID
+            UNION ALL SELECT request_id FROM Compensation_Leave WHERE emp_id = @Employee_ID
+        ) AS subleaves ON l.request_id = subleaves.request_id
         INNER JOIN Employee e ON e.employee_id = @employee_ID
-    WHERE NOT (l.end_date < @from OR l.start_date > @to)
-        AND NOT (e.employment_status = 'Resigned')
-        AND l.final_approval_status IN ('Approved', 'Pending')
+        WHERE 
+            l.start_date <= @to AND l.end_date >= @from
+            AND NOT (e.employment_status = 'resigned')
+            AND l.final_approval_status IN ('approved', 'pending')
     )
-        SET @Onleave = 1;
+    SET @Onleave = 1;
 
     RETURN @Onleave;
 END

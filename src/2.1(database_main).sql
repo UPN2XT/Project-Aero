@@ -342,11 +342,11 @@ DBCC CHECKIDENT ('Employee', RESEED, 0)
 GO
 
 
-exec createAllTables
+EXEC createAllTables
 
-exec dropAllTables
+EXEC dropAllTables
 
-exec clearAllTables
+EXEC clearAllTables
 GO
 
 
