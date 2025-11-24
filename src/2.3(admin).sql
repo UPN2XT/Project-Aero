@@ -316,19 +316,7 @@ BEGIN
     BEGIN
         PRINT 'Error: The replacement employee (Emp2) is on leave during this period.';
         RETURN;
-    END
-
-    -- I am not sure about this one. If i remeber correctly an employee is allowed to replace several employees so in that case this condition should be removed.
-    IF EXISTS (
-        SELECT 1 
-        FROM Employee_Replace_Employee 
-        WHERE replacement_id = @Emp2_ID 
-          AND (from_date <= @to_date AND to_date >= @from_date)
-    )
-    BEGIN
-        PRINT 'Error: The replacement employee is already busy replacing someone else during this period.';
-        RETURN;
-    END
+    END;
 
     IF EXISTS (
         SELECT 1 

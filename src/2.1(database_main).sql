@@ -8,7 +8,7 @@ CREATE PROC createAllTables
 AS
 CREATE TABLE Department
 (
-    name VARCHAR(50) PRIMARY KEY CHECK (name IN ('MET', 'IET', 'HR', 'Medical','civil','BI','Management','Law','Pharmacy','Dentistry')),
+    name VARCHAR(50) PRIMARY KEY,
     building_location VARCHAR(50),
 );
 
@@ -24,8 +24,8 @@ CREATE TABLE Employee
     official_day_off VARCHAR(50),
     years_of_experience INT,
     national_ID CHAR(16),
-    employment_status VARCHAR(50) CHECK (employment_status IN ('Active', 'Onleave', 'Notice Period', 'Resigned')),
-    type_of_contract VARCHAR(50) CHECK (type_of_contract IN ('Full time', 'Part time')),
+    employment_status VARCHAR(50) CHECK (employment_status IN ('active', 'onleave', 'notice_period', 'resigned')),
+    type_of_contract VARCHAR(50) CHECK (type_of_contract IN ('full_time', 'part_time')),
     emergency_contact_name VARCHAR(50),
     emergency_contact_phone CHAR(11),
     annual_balance INT,
@@ -52,7 +52,7 @@ CREATE TABLE Role
     description VARCHAR(50),
     rank INT,
     base_salary DECIMAL(10,2),
-    percentage_YOE DECIMAL(10,2),
+    percentage_YOE DECIMAL(4,2),
     percentage_overtime DECIMAL(4,2),
     annual_balance INT,
     accidental_balance INT,
@@ -63,7 +63,7 @@ CREATE TABLE Employee_Role
     emp_ID INT,
     role_name VARCHAR(50),
     PRIMARY KEY(emp_ID,role_name),
-    FOREIGN KEY (emp_ID) REFERENCES EMPLOYEE(employee_ID),
+    FOREIGN KEY (emp_ID) REFERENCES Employee(employee_ID),
     FOREIGN KEY (role_name) REFERENCES Role(role_name)
 );
 
@@ -73,7 +73,7 @@ CREATE TABLE Role_existsIn_Department
     role_name VARCHAR(50),
     PRIMARY KEY(department_name,role_name),
     FOREIGN KEY (department_name) REFERENCES Department(name),
-    FOREIGN KEY (Role_name) REFERENCES Role(role_name),
+    FOREIGN KEY (role_name) REFERENCES Role(role_name),
 );
 
 CREATE TABLE Leave
@@ -84,10 +84,9 @@ CREATE TABLE Leave
     end_date DATE,
     num_days AS DATEDIFF(DAY,start_date,end_date) + 1,
     --fixed this as regular subtraction wasnt working
-    final_approval_status VARCHAR(50) CHECK (final_approval_status IN ('Approved', 'Rejected', 'Pending')) DEFAULT 'Pending',
+    final_approval_status VARCHAR(50) CHECK (final_approval_status IN ('approved', 'rejected', 'pending')) DEFAULT 'pending',
 );
 
--- ALL Leave subclasses inheriate thier parent Leave request_id so sperate IDENTITY(1,1) is not require  
 CREATE TABLE Annual_Leave
 (
     request_ID INT PRIMARY KEY,
@@ -111,7 +110,7 @@ CREATE TABLE Medical_Leave
     request_ID INT PRIMARY KEY,
     insurance_status BIT,
     disability_details VARCHAR(50),
-    type VARCHAR (50) CHECK (type IN ('Sick', 'Maternity')),
+    type VARCHAR (50) CHECK (type IN ('sick', 'maternity')),
     Emp_ID INT,
     FOREIGN KEY (Emp_ID) REFERENCES Employee(employee_ID),
     FOREIGN KEY (request_ID) REFERENCES Leave(request_ID),
@@ -139,26 +138,26 @@ CREATE TABLE Compensation_Leave
 
 CREATE TABLE Document
 (
-    document_ID INT PRIMARY KEY,
+    document_ID INT PRIMARY KEY IDENTITY,
     type VARCHAR(50),
     description VARCHAR(50),
     file_name VARCHAR(50),
     creation_date DATE,
     expiry_date DATE,
-    status VARCHAR(50) CHECK (status IN ('Valid', 'Expired')),
+    status VARCHAR(50) CHECK (status IN ('valid', 'expired')),
     emp_ID INT,
     medical_ID INT,
     unpaid_ID INT,
     FOREIGN KEY (emp_ID) REFERENCES Employee(employee_ID),
-    FOREIGN KEY (medical_ID) REFERENCES medical_leave(request_ID),
-    FOREIGN KEY (unpaid_ID) REFERENCES unpaid_leave(request_ID),
+    FOREIGN KEY (medical_ID) REFERENCES Medical_Leave(request_ID),
+    FOREIGN KEY (unpaid_ID) REFERENCES Unpaid_Leave(request_ID),
 );
 
 CREATE TABLE Payroll
 (
     ID INT PRIMARY KEY IDENTITY(1,1),
     payment_date DATE,
-    final_salary_amount DECIMAL(10,1),
+    final_salary_amount DECIMAL(10,2),
     from_date DATE,
     to_date DATE,
     comments VARCHAR(150),
@@ -175,7 +174,7 @@ CREATE TABLE Attendance
     check_in_time TIME,
     check_out_time TIME,
     total_duration AS DATEDIFF(minute,check_in_time,check_out_time),--11/14 fixed this
-    status VARCHAR(50) CHECK (status IN ('Absent', 'Attended')) Default 'Absent',
+    status VARCHAR(50) CHECK (status IN ('absent', 'attended')) Default 'absent',
     emp_ID INT,
     FOREIGN KEY (emp_ID) REFERENCES Employee(employee_ID),
 );
@@ -187,12 +186,12 @@ CREATE TABLE Deduction
     PRIMARY KEY(deduction_ID,emp_ID),
     date DATE,
     amount DECIMAL(10,2),
-    type VARCHAR(50) CHECK (type IN ('Unpaid', 'Missing hours', 'Missing days')),
-    status VARCHAR(50) CHECK (status IN ('Pending', 'Finalized')) Default 'Pending',
+    type VARCHAR(50) CHECK (type IN ('unpaid', 'missing_hours', 'missing_days')),
+    status VARCHAR(50) CHECK (status IN ('pending', 'finalized')) Default 'pending',
     unpaid_ID INT,
     attendance_ID INT,
     FOREIGN KEY (emp_ID) REFERENCES Employee(employee_ID),
-    FOREIGN KEY (unpaid_ID) REFERENCES Unpaid_leave(request_ID),
+    FOREIGN KEY (unpaid_ID) REFERENCES Unpaid_Leave(request_ID),
     FOREIGN KEY (attendance_ID) REFERENCES Attendance(attendance_ID),
 );
 
@@ -208,10 +207,9 @@ CREATE TABLE Performance
 
 CREATE TABLE Employee_Replace_Employee
 (
-    Table_ID INT IDENTITY(1,1),
     Emp1_ID INT,
     Emp2_ID INT,
-    PRIMARY KEY(Table_ID, Emp1_ID,Emp2_ID),
+    PRIMARY KEY(Emp1_ID,Emp2_ID),
     from_date DATE,
     to_date DATE,
     FOREIGN KEY (Emp1_ID) REFERENCES Employee(employee_ID),
@@ -336,5 +334,12 @@ DELETE FROM Role
 DELETE FROM Department
 GO
 
+
+exec createAllTables
+
+exec dropAllTables
+
+exec clearAllTables
+GO
 
 
