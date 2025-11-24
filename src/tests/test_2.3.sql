@@ -5,6 +5,9 @@ USE University_HR_ManagementSystem_Team_97;
 EXEC dbo.createAllTables
 GO
 
+EXEC delete_dbase
+GO
+
 -- test 1 a
 DROP PROCEDURE dbo.init_values
 EXECUTE dbo.createAllTables
