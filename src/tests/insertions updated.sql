@@ -10,7 +10,8 @@ GO
 CREATE PROCEDURE init_values
 AS
 BEGIN
-    EXEC dbo.clearAllTables;
+    EXECUTE dbo.clearAllTables
+    ------
     insert into Department
         (name,building_location)
     values
@@ -1026,5 +1027,6 @@ BEGIN
     values
         (5, 20, 'pending')
 ------------------------------------------------------
+
 END
 GO
