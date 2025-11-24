@@ -1030,3 +1030,8 @@ BEGIN
 
 END
 GO
+exec init_values
+
+select * from Employee
+
+select * from Annual_Leave
