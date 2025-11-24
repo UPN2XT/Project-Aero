@@ -138,7 +138,7 @@ CREATE TABLE Compensation_Leave
 
 CREATE TABLE Document
 (
-    document_ID INT PRIMARY KEY IDENTITY,
+    document_ID INT PRIMARY KEY IDENTITY(1,1) NOT NULL,
     type VARCHAR(50),
     description VARCHAR(50),
     file_name VARCHAR(50),
