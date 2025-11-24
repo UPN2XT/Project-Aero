@@ -1,3 +1,6 @@
+USE University_HR_ManagementSystem_Team_97
+GO
+
 CREATE VIEW allEmployeeProfiles
 AS
     SELECT *
@@ -6,7 +9,7 @@ GO
 
 CREATE VIEW NoEmployeeDept
 AS
-    SELECT count(*)
+    SELECT count(*) AS 'count'
     FROM Employee
     GROUP BY dept_name;
 GO
@@ -18,9 +21,10 @@ AS
     WHERE semester ='W%';
 GO
 
+-- TODO:// recheck
 CREATE VIEW allRejectedMedicals
 AS
-    SELECT *
+    SELECT Ml.disability_details, ml.Emp_ID, ml.insurance_status, ml.request_ID, ml.[type]
     FROM Medical_Leave Ml
         INNER JOIN Leave l on Ml.request_ID = l.request_ID
     where final_approval_status = 'Rejected';
