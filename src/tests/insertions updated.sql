@@ -1,5 +1,12 @@
 ﻿USE University_HR_ManagementSystem_Team_97;
 go
+
+CREATE PROCEDURE delete_dbase
+AS
+EXEC dbo.dropAllTables;
+EXEC dbo.dropAllProceduresFunctionsViews
+GO
+
 CREATE PROCEDURE init_values
 AS
 BEGIN
