@@ -88,7 +88,7 @@ BEGIN
         SELECT 1
     FROM LEAVE AS l
         INNER JOIN (
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        SELECT request_id
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        SELECT request_id
             FROM Annual_Leave
             WHERE emp_id = @Employee_ID
         UNION ALL
@@ -132,6 +132,22 @@ BEGIN
     RETURN @rank;
 END
 GO
+
+CREATE FUNCTION GET_ID_Replacment_IF_ON_LEAVE(@employee_id INT)
+RETURNS INT
+AS
+BEGIN
+    DECLARE @ID INT = @employee_id
+    SELECT TOP 1
+        @ID = e.Emp2_ID
+    FROM Employee_Replace_Employee e
+    WHERE e.from_date <= GETDATE() AND e.to_date >= GETDATE()
+    RETURN CASE WHEN dbo.Is_On_Leave(@employee_ID, GETDATE(), GETDATE()) = 1
+    THEN @ID ELSE @employee_ID END
+END
+GO
+
+
 
 CREATE PROCEDURE Submit_annual
     @employee_ID INT,
@@ -208,7 +224,7 @@ BEGIN
         AND dept_name='HR')
     INSERT INTO Employee_Approve_Leave
         (Emp1_ID, Leave_ID)
-    SELECT e.employee_ID, @request_id
+    SELECT dbo.GET_ID_Replacment_IF_ON_LEAVE(e.employee_id), @request_id
     FROM Employee e
         INNER JOIN Employee_Role er ON er.emp_id = e.employee_ID
         INNER JOIN Role r ON r.role_name = er.role_name
@@ -225,7 +241,7 @@ BEGIN
     )
     INSERT INTO Employee_Approve_Leave
         (Emp1_ID, Leave_ID)
-    SELECT e.employee_ID, @request_id
+    SELECT dbo.GET_ID_Replacment_IF_ON_LEAVE(e.employee_id), @request_id
     FROM Employee e
         INNER JOIN Employee_Role er ON er.emp_id = e.employee_ID
         INNER JOIN Role r ON r.role_name = er.role_name
@@ -233,7 +249,9 @@ BEGIN
     ELSE
     INSERT INTO Employee_Approve_Leave
         (Emp1_ID, Leave_ID)
-    SELECT e.employee_ID, @request_id
+    SELECT
+        dbo.GET_ID_Replacment_IF_ON_LEAVE(e.employee_id),
+        @request_id
     FROM Employee e
         INNER JOIN Employee_Role er ON er.emp_id = e.employee_ID
         INNER JOIN Role r ON r.role_name = er.role_name
@@ -245,7 +263,7 @@ GO
 CREATE FUNCTION Status_leaves(@employee_ID INT)
 RETURNS TABLE
 AS
-RETURN (                                                                                                     SELECT al.request_ID,
+RETURN (                                                                                                                     SELECT al.request_ID,
         l.date_of_request,
         l.final_approval_status AS status
     FROM Annual_Leave aL
@@ -333,13 +351,13 @@ BEGIN
     IF (@Dept = 'HR')
     INSERT INTO Employee_Approve_Leave
         (Emp1_ID, Leave_ID, status)
-    SELECT e.employee_ID, @ReqID, 'pending'
+    SELECT dbo.GET_ID_Replacment_IF_ON_LEAVE(e.employee_id), @ReqID, 'pending'
     FROM Employee e INNER JOIN Employee_Role er ON e.employee_ID = er.emp_ID
     WHERE er.role_name = 'HR Manager';
     ELSE
     INSERT INTO Employee_Approve_Leave
         (Emp1_ID, Leave_ID, status)
-    SELECT e.employee_ID, @ReqID, 'pending'
+    SELECT dbo.GET_ID_Replacment_IF_ON_LEAVE(e.employee_id), @ReqID, 'pending'
     FROM Employee e INNER JOIN Employee_Role er ON e.employee_ID = er.emp_ID
     WHERE er.role_name = 'HR_Representative_' + @Dept;
 END
@@ -395,13 +413,13 @@ BEGIN
     IF (@Dept = 'HR')
     INSERT INTO Employee_Approve_Leave
         (Emp1_ID, Leave_ID, status)
-    SELECT e.employee_ID, @ReqID, 'pending'
+    SELECT dbo.GET_ID_Replacment_IF_ON_LEAVE(e.employee_id), @ReqID, 'pending'
     FROM Employee e INNER JOIN Employee_Role er ON e.employee_ID = er.emp_ID
     WHERE er.role_name = 'HR Manager';
     ELSE
     INSERT INTO Employee_Approve_Leave
         (Emp1_ID, Leave_ID, status)
-    SELECT e.employee_ID, @ReqID, 'pending'
+    SELECT dbo.GET_ID_Replacment_IF_ON_LEAVE(e.employee_id), @ReqID, 'pending'
     FROM Employee e INNER JOIN Employee_Role er ON e.employee_ID = er.emp_ID
     WHERE er.role_name = 'HR_Representative_' + @Dept;
 END
@@ -477,7 +495,7 @@ BEGIN
     BEGIN
         INSERT INTO Employee_Approve_Leave
             (Emp1_ID, Leave_ID)
-        SELECT e.employee_ID, @request_ID
+        SELECT dbo.GET_ID_Replacment_IF_ON_LEAVE(e.employee_id), @request_ID
         FROM Employee e
             INNER JOIN Employee_Role er ON e.employee_ID = er.emp_id
             INNER JOIN Role r ON er.role_name = r.role_name
@@ -494,7 +512,7 @@ BEGIN
     BEGIN
         INSERT INTO Employee_Approve_Leave
             (Emp1_ID, Leave_ID)
-        SELECT e.employee_ID, @request_id
+        SELECT dbo.GET_ID_Replacment_IF_ON_LEAVE(e.employee_id), @request_id
         FROM Employee e
             INNER JOIN Employee_Role er ON er.emp_id = e.employee_ID
             INNER JOIN Role r ON r.role_name = er.role_name
@@ -505,7 +523,7 @@ BEGIN
     BEGIN
         INSERT INTO Employee_Approve_Leave
             (Emp1_ID, Leave_ID)
-        SELECT e.employee_ID, @request_ID
+        SELECT dbo.GET_ID_Replacment_IF_ON_LEAVE(e.employee_id), @request_ID
         FROM Employee e
             INNER JOIN Employee_Role er ON e.employee_ID = er.emp_id
             INNER JOIN Role r ON er.role_name = r.role_name
