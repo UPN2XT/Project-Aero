@@ -89,7 +89,7 @@ BEGIN
         SELECT 1
     FROM LEAVE AS l
         INNER JOIN (
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            SELECT request_id
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                SELECT request_id
             FROM Annual_Leave
             WHERE emp_id = @Employee_ID
         UNION ALL
@@ -251,7 +251,7 @@ GO
 CREATE FUNCTION Status_leaves(@employee_ID INT)
 RETURNS TABLE
 AS
-RETURN (                                         SELECT al.request_ID,
+RETURN (                                                             SELECT al.request_ID,
         l.date_of_request,
         l.final_approval_status AS status
     FROM Annual_Leave aL
@@ -406,8 +406,7 @@ GO
 
 
 CREATE PROCEDURE Submit_unpaid
-    -- Goal: Apply for unpaid leave. Populate the approval table accordingly
-    -- with the corresponding employees for the leaves’ approval based on the hierarchy
+    -- TODO://to be tested
     @employee_ID INT,
     @start_date DATE,
     @end_date DATE,
@@ -437,7 +436,7 @@ BEGIN
     FROM Unpaid_Leave ul
         INNER JOIN Leave l ON ul.request_id = l.request_id
     WHERE ul.emp_ID = @employee_ID
-        AND l.status = 'Approved'
+        AND l.final_approval_status = 'Approved'
         AND YEAR(l.start_date) = YEAR(GETDATE())
     )
     BEGIN
@@ -471,9 +470,9 @@ BEGIN
     IF @file_name IS NOT NULL OR @document_description IS NOT NULL
     BEGIN
         INSERT INTO Document
-            (request_id, emp_id, description, file_name, status)
+            (unpaid_ID, emp_id, description, file_name, status, [type])
         VALUES
-            (@request_ID, @employee_ID, @document_description, @file_name, 'valid');
+            (@request_ID, @employee_ID, @document_description, @file_name, 'valid', 'Memo');
     END
 
     -- CASE A: The Applicant is an HR Employee
@@ -486,8 +485,8 @@ BEGIN
         FROM Employee e
             INNER JOIN Employee_Role er ON e.employee_ID = er.emp_id
             INNER JOIN Role r ON er.role_name = r.role_name
-        WHERE r.role_name = 'President'
-            OR (r.role_name = 'HR Manager' AND e.dept_name = 'HR');
+        WHERE r.[rank] <= 2
+            OR (r.rank = 3 AND e.dept_name = 'HR');
     END
 
     -- CASE B: The Applicant is a Dean or Vice Dean
@@ -501,12 +500,11 @@ BEGIN
     BEGIN
         INSERT INTO Employee_Approve_Leave
             (Emp1_ID, Leave_ID)
-        SELECT e.employee_ID, @request_ID
+        SELECT e.employee_ID, @request_id
         FROM Employee e
-            INNER JOIN Employee_Role er ON e.employee_ID = er.emp_id
-            INNER JOIN Role r ON er.role_name = r.role_name
-        WHERE r.role_name = 'President'
-            OR (r.role_name = 'HR Representative' AND e.dept_name = 'HR');
+            INNER JOIN Employee_Role er ON er.emp_id = e.employee_ID
+            INNER JOIN Role r ON r.role_name = er.role_name
+        WHERE r.rank <= 2 OR dept_name = 'HR'
     END
 
     -- CASE C: Regular Employee (Dean of their Dept + HR)
@@ -519,7 +517,7 @@ BEGIN
             INNER JOIN Employee_Role er ON e.employee_ID = er.emp_id
             INNER JOIN Role r ON er.role_name = r.role_name
         WHERE (r.role_name = 'Dean' AND e.dept_name = @dept_name)
-            OR e.dept_name = 'HR';
+            OR e.dept_name = 'HR' OR r.[rank] <= 2;
     END
 END
 GO
