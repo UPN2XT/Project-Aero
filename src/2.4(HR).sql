@@ -1,3 +1,5 @@
+USE University_HR_ManagementSystem_Team_97;
+GO
 
 CREATE FUNCTION HRLoginValidation(@Employee_ID int, @Password varchar(50))
 RETURNS bit
@@ -7,7 +9,7 @@ BEGIN
     FROM Employee e
     where @Employee_ID= e.employee_ID AND @Password = e.[password] and e.dept_name = 'HR')
     BEGIN
-    SET @ISVALID = 1;
+        SET @ISVALID = 1;
     END
     return @ISVALID
 END
@@ -32,7 +34,7 @@ UPDATE Employee_Approve_Leave
     FROM Employee
         INNER JOIN Accidental_Leave ON Accidental_Leave.emp_ID = Employee.employee_id
             AND @request_ID = Accidental_Leave.request_id
-    WHERE Employee.accidental_balance > 0 and  Employee.type_of_contract<>'part_time'
+    WHERE Employee.accidental_balance > 0 and Employee.type_of_contract<>'part_time'
 			) THEN 'approved'
 			ELSE 'rejected'
 		END
@@ -44,7 +46,7 @@ UPDATE Employee_Approve_Leave
     FROM Employee
         INNER JOIN Annual_Leave ON Annual_Leave.emp_ID = Employee.employee_id
             AND @request_ID = Annual_Leave.request_id
-    WHERE Employee.annual_balance > 0 and  Employee.type_of_contract<>'part_time'
+    WHERE Employee.annual_balance > 0 and Employee.type_of_contract<>'part_time'
 			) THEN 'approved'
 			ELSE 'rejected'
 		END
@@ -103,7 +105,7 @@ BEGIN
         from Employee_Approve_Leave eal2
         WHERE eal2.[status]='rejected' and @request_ID = eal.Leave_ID))
     BEGIN
-    update Leave
+        update Leave
     set final_approval_status = 'rejected'
     where @request_ID = request_ID
         print 'Error:employee within the hierarchy rejected the leave'
@@ -334,7 +336,7 @@ CREATE FUNCTION get_approval_status_pres(@Request_ID INT)
 RETURNS VARCHAR(50)
 AS
 BEGIN
-DECLARE @Dep_name varchar(50)
+    DECLARE @Dep_name varchar(50)
     RETURN CASE WHEN EXISTS (
     SELECT emp_id
     FROM Employee_Approve_Leave
