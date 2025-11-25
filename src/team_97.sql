@@ -271,6 +271,7 @@ BEGIN
     DROP FUNCTION IF EXISTS get_approval_status_pres
     DROP FUNCTION IF EXISTS get_rank
     DROP FUNCTION IF EXISTS GET_ID_Replacment_IF_ON_LEAVE
+    DROP FUNCTION IF EXISTS Get_Salary
 
     DROP VIEW IF EXISTS allEmployeeProfiles
     DROP VIEW IF EXISTS NoEmployeeDept
