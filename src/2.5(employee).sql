@@ -1,10 +1,7 @@
--- TODO: MAKE SURE OF THE VARIABLES NAMES ESPECIALLY EMPLOYEEE ID (ITS CAPITAL)
-
-CREATE ROLE Employee
+USE University_HR_ManagementSystem_Team_97;
 GO
--- Fixed: invalid column name employee_ID and password here
+
 CREATE FUNCTION EmployeeLoginValidation(@employee_ID int, @password varchar(50))
--- Goal: login using my Id and password
 RETURNS bit
 BEGIN
     DECLARE @ISVALID BIT = 0;
@@ -16,10 +13,7 @@ BEGIN
 END
 GO
 
-
-
 CREATE FUNCTION MyPerformance(@employee_ID INT, @semester CHAR(3))
--- Goal: "Retrieve my performance for a certain semester."
 RETURNS TABLE
 AS
 RETURN
@@ -30,7 +24,6 @@ RETURN
     comments,
     semester
 FROM Performance
---invalid object name Performance here somehow, maybe drop the table and do it again
 WHERE emp_ID = @employee_ID
     AND semester = @semester
 )
@@ -38,7 +31,6 @@ GO
 
 
 CREATE FUNCTION Last_month_payroll(@employee_ID INT)
--- Goal: Retrieve last month's payroll details
 RETURNS TABLE
 AS
 RETURN
@@ -53,15 +45,13 @@ RETURN
     bonus_amount,
     deductions_amount
 FROM Payroll
---invalid object name Payroll as well
-WHERE emp_ID = @employee_ID -- wtf is happening here?
+WHERE emp_ID = @employee_ID
     AND MONTH(payment_date) = MONTH(DATEADD(MONTH, -1, GETDATE()))
     AND YEAR(payment_date) = YEAR(DATEADD(MONTH, -1, GETDATE()))
 );
 GO
 
 CREATE FUNCTION MyAttendance(@employee_ID int)
--- Goal: Retrieve attendance records for the current month, excluding my unattended official_day_off
 RETURNS TABLE
 AS
 RETURN(
@@ -81,18 +71,14 @@ CREATE FUNCTION Deductions_Attendance (@employee_ID int, @month int)
 RETURNS TABLE
 AS
 RETURN(
-SELECT *
+SELECT d.*
 FROM Deduction d
     INNER JOIN Attendance a ON a.attendance_ID = d.attendance_ID
-WHERE @employee_ID = d.emp_ID AND MONTH(d.date) = @month
+WHERE @employee_ID = d.emp_ID AND MONTH(a.[date]) = @month
+    AND d.[type] = 'missing_days'
 )
 GO
 
--- as3 fixed by gemini
--- IMPORTANT NOTE: 
--- "treat it as approved for verification purposes." This implies checking the status 
--- from the LEAVE table. our query doesn't check status at all bv1: fixed that
--- bv1: an employee who is Resigned cant be onleave (useful for 2.3c)
 
 CREATE FUNCTION Is_On_Leave(@employee_ID INT, @from DATE, @to DATE)
 RETURNS BIT
@@ -101,19 +87,33 @@ BEGIN
     DECLARE @Onleave BIT = 0;
     IF EXISTS (
         SELECT 1
-        FROM LEAVE AS l
+    FROM LEAVE AS l
         INNER JOIN (
-            SELECT request_id FROM Annual_Leave WHERE emp_id = @Employee_ID
-            UNION ALL SELECT request_id FROM Accidental_Leave WHERE emp_id = @Employee_ID
-            UNION ALL SELECT request_id FROM Medical_Leave WHERE emp_id = @Employee_ID
-            UNION ALL SELECT request_id FROM Unpaid_Leave WHERE emp_id = @Employee_ID
-            UNION ALL SELECT request_id FROM Compensation_Leave WHERE emp_id = @Employee_ID
+                                                                                                                                                                                                                                SELECT request_id
+            FROM Annual_Leave
+            WHERE emp_id = @Employee_ID
+        UNION ALL
+            SELECT request_id
+            FROM Accidental_Leave
+            WHERE emp_id = @Employee_ID
+        UNION ALL
+            SELECT request_id
+            FROM Medical_Leave
+            WHERE emp_id = @Employee_ID
+        UNION ALL
+            SELECT request_id
+            FROM Unpaid_Leave
+            WHERE emp_id = @Employee_ID
+        UNION ALL
+            SELECT request_id
+            FROM Compensation_Leave
+            WHERE emp_id = @Employee_ID
         ) AS subleaves ON l.request_id = subleaves.request_id
         INNER JOIN Employee e ON e.employee_id = @employee_ID
-        WHERE 
-            l.start_date <= @to AND l.end_date >= @from
-            AND NOT (e.employment_status = 'resigned')
-            AND l.final_approval_status IN ('approved', 'pending')
+    WHERE 
+        l.start_date <= @to AND l.end_date >= @from
+        AND NOT (e.employment_status = 'resigned')
+        AND LOWER(l.final_approval_status) IN ('approved', 'pending')
     )
     SET @Onleave = 1;
 
@@ -121,47 +121,7 @@ BEGIN
 END
 GO
 
-/*
-old imp
-
-    CREATE FUNCTION Is_On_Leave(@employee_ID int, @from date, @to date)
-RETURNS BIT
-BEGIN 
-DECLARE @Onleave bit =0 
-WITH AllLeaves AS (SELECT request_id,l.start_date,l.end_date
-            FROM LEAVE l
-        INNER JOIN (
-            SELECT request_id,emp_ID
-            FROM Annual_Leave 
-            WHERE emp_id = @Employee_ID
-        UNION ALL
-            SELECT request_id, emp_id
-            FROM Accidental_Leave
-            WHERE emp_id = @Employee_ID
-        UNION ALL
-            SELECT request_id, emp_id
-            FROM Medical_Leave
-            WHERE emp_id = @Employee_ID
-        UNION ALL
-            SELECT request_id, emp_id
-            FROM Unpaid_Leave
-            WHERE emp_id = @Employee_ID
-        UNION ALL
-            SELECT request_id, emp_id
-            FROM Compensation_Leave
-            WHERE emp_id = @Employee_ID
-            ) AS subleaves
-            ON l.request_id=subleaves.request_id
-    )
-    IF EXISTS( SELECT * FROM AllLeaves al--if anyone knows how to fix this, pls do
-    WHERE al.[start_date] BETWEEN @from and @to 
-    AND al.end_date BETWEEN @from and @to)
-    SET @Onleave = 1
-return @Onleave
-END
-GO
-
-*/
+DROP FUNCTION is_on_leave
 
 --end of 11/14 checks and update
 
@@ -289,7 +249,7 @@ CREATE FUNCTION Status_leaves(@employee_ID INT)
 RETURNS TABLE
 AS
 RETURN (
-                                                SELECT al.request_ID,
+                                                                            SELECT al.request_ID,
         l.date_of_request,
         al.final_approval_status AS status
     FROM Annual_Leave aL
