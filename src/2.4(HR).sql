@@ -15,28 +15,12 @@ BEGIN
 END
 GO
 
--- as3: major change turns out aprovals are pre put into the table so insert got changed to set
--- as3: two important requirments are missing hr is supposed to be the last one approving ie the status of the leave entity itself should change
--- as3: a PRODUCER to check if the leave was rejected and update it is required
-
-CREATE PROCEDURE HR_approval_an_acc--11/14 dont we need to check if the employee is full time or not? as3: yes this needs to be fixed
+CREATE PROCEDURE HR_approval_an_acc
     @request_ID int,
     @HR_ID int
 AS
 BEGIN
-
-    /*if EXISTS(
-    SELECT eal.[status]
-    from Employee_Approve_Leave eal
-    WHERE @request_ID = eal.Leave_ID AND EXISTS(SELECT eal2.[status]
-        from Employee_Approve_Leave eal2
-        WHERE LOWER(eal2.[status])='rejected' and @request_ID = eal.Leave_ID))
-    BEGIN
-        print 'Error:employee within the hierarchy rejected the leave'
-        RETURN;
-    END;*/
-
-    IF @request_ID IN (                                                                                                                                                                        SELECT request_id
+    IF @request_ID IN (                                                                                                                                                        SELECT request_id
         FROM Accidental_Leave
     UNION
         SELECT request_id
@@ -83,18 +67,6 @@ CREATE PROCEDURE HR_approval_unpaid
     @HR_ID int
 AS
 BEGIN
-
-    /* if EXISTS(
-    SELECT eal.[status]
-    from Employee_Approve_Leave eal
-    WHERE @request_ID = eal.Leave_ID AND EXISTS(SELECT eal2.[status]
-        from Employee_Approve_Leave eal2
-        WHERE eal2.[status]='Rejected' and @request_ID = eal.Leave_ID))
-    BEGIN
-        print 'Error:employee within the hierarchy rejected the leave'
-        RETURN;
-    END;*/
-
     IF @request_ID IN (SELECT request_id
     FROM Unpaid_Leave)
 UPDATE Employee_Approve_Leave
@@ -109,8 +81,8 @@ UPDATE Employee_Approve_Leave
             INNER JOIN Employee e on u.emp_ID = e.employee_ID
         WHERE u.request_id = @request_id
             AND
-            e.type_of_contract = 'full_time'--11/14 added this part since part-time employees are not eligible so assuming they can still request one, it should be rejected
-				) AND YEAR(GETDATE()) = YEAR(Leave.start_date) -- Need to check if max unpaid leave is in the same year or not
+            e.type_of_contract = 'full_time'
+				) AND YEAR(GETDATE()) = YEAR(Leave.start_date)
 			) THEN 'approved'
 			ELSE 'rejected'
 			END
@@ -166,60 +138,6 @@ UPDATE Employee_Approve_Leave
 END
 GO
 
--- 3.4 (g) TODO -- as2 note: g requires recursion or a more complex way of inserion that current ones or a way to devide the leaves according to month
-
--- as2: the query is way too complex and I am not sure if its cully correct 
-/*
-CREATE PROCEDURE Deduction_hours
-    @employee_ID int
-AS
-BEGIN
-    DECLARE @rate DECIMAL(10,2);
-    SET @rate = Get_Salary(@employee_id) / 176 -- TODO 
-    WITH
-        q1
-        AS
-        (
-            SELECT SUM(duration) AS dur,
-                MONTH(Attendance.date) AS month,
-                YEAR(Attendance.date) AS year
-            FROM attencence
-            GROUP BY 
-            MONTH(Attendance.date),
-            YEAR(Attendance.date)
-            HAVING hours < 176
-                AND NOT EXISTS (
-                SELECT *
-                FROM Deduction d
-                    INNER JOIN Attendance a ON a.attendance_ID = d.attendance_ID
-                WHERE Deduction.emp_id = @employee_id
-                    AND Month(a.date) = month AND YEAR(a.date) = YEAR
-                    AND d.type = 'Missing hours'--why was this made? dont we need to find the first day which has less than 8 hours?
-            )
-        )
-    INSERT INTO Deduction
-        (emp_ID, date, amount, attendance_ID, type)
-    SELECT
-        @employee_id,
-        '01-01-2001', /*placeholder becuase i am not sure what the date should be exactly
-                        11-14 part of me belives that it should be related to the first day they get a deduction on */
-        ((176-dur) * @rate),
-        (
-                SELECT TOP 1
-            ae.attendance_id
-        FROM Attendance ae
-        WHERE YEAR(ae.date) = year AND MONTH(ae.date) = month
-            AND ae.duration < 8
-        ORDER BY ae.date
-            ),
-        'Missing hours'
-    FROM q1
-
-END
-GO
-*/
-
--- new 21/11
 CREATE PROCEDURE Deduction_hours
     @employee_ID int
 AS
@@ -238,15 +156,7 @@ BEGIN
     SELECT
         @employee_ID,
 
-        /*(SELECT TOP 1 a.date 
-         FROM Attendance a
-         WHERE a.emp_ID = @employee_ID 
-           AND MONTH(a.date) = Shortfalls.MonthVal 
-           AND YEAR(a.date) = Shortfalls.YearVal 
-           AND DATEDIFF(hour, a.check_in_time, a.check_out_time) < 8 
-         ORDER BY a.date ASC), */
-
-        CAST(GETDATE() AS DATE), -- current date as directed by ta
+        CAST(GETDATE() AS DATE),
 
         Shortfalls.TotalMissingHours * @HourlyRate,
 
@@ -282,41 +192,6 @@ BEGIN
 END;
 GO
 
--- as2: not 100% sure about this
-/*
-CREATE PROCEDURE Deduction_days
-    @employee_ID int
-AS
-BEGIN
-    DECLARE @amount DECIMAL(10,2);
-    SET @amount = Get_Salary(@employee_id) / 22;
-    INSERT INTO Deduction
-        (emp_ID, date, amount, attendance_ID, type)
-    SELECT
-        @employee_id,
-        Attendance.date,
-        @amount,
-        Attendance.attendance_ID,
-        'Missing days'
-    FROM Attendance
-    WHERE Attendance.status = 'Absent'
-        AND Attendance.attendance_ID NOT IN (
-            SELECT attendance_ID
-        FROM Deduction
-        WHERE Deduction.emp_id = @employee_ID
-        )
-
-END
-GO
-*/
-/*
-	Questions?
-	is the overtime calulated for last 30 days? month? this month? this needs answering
-	is overtime calculated if an employee stays more than 8 hours for a day or is it for total hours
-
-*/
-
--- new 21/11
 CREATE PROCEDURE Deduction_days
     @employee_ID int
 AS
@@ -334,7 +209,6 @@ BEGIN
     SELECT
         @employee_ID,
         a.date,
-        --CAST(GETDATE() AS DATE), -- current date as directed by ta
         @DailyRate,
         a.attendance_ID,
         'missing_days'
@@ -398,16 +272,9 @@ BEGIN
     ORDER BY rank DESC;
 
     RETURN @BaseRate * (@OvertimeFactor * (@TotalAmount-176) / 100);
-
---SET @TotalAmount = 22 * 
 END
 GO
 
-/*
-	Questions:
-		1- does payroll finalize deduction ie does it change its status
-		2- again as above does what does the deduction dureation do exactly
-*/
 CREATE PROCEDURE Add_Payroll
     @Employee_ID INT,
     @From DATE,
@@ -438,7 +305,7 @@ BEGIN
 END
 GO
 
-CREATE FUNCTION get_approval_status(@Request_ID INT, @Dep_name VARCHAR(50), @Min_Rank INT)--TODO add fourth input incase of hr to know who dep they represent
+CREATE FUNCTION get_approval_status(@Request_ID INT, @Dep_name VARCHAR(50), @Min_Rank INT)
 RETURNS VARCHAR(50)
 AS
 BEGIN
@@ -570,208 +437,69 @@ WHERE request_id = @request_id
 END
 GO
 
-/*CREATE PROCEDURE auto_update_annual--TO DO 
-    @request_ID INT
-AS
-BEGIN
-    DECLARE @emp_approve_emp VARCHAR(50);
-    DECLARE @upperboard_approve VARCHAR(50);
-    DECLARE @employee_ID INT;
-    DECLARE @department VARCHAR(50);
-    DECLARE @rank INT;
-    -- The following are only needed to check Is_On_Leave
-    DECLARE @Emp1_ID INT;
-    DECLARE @Emp1_ID_rank INT;
-    DECLARE @from_date VARCHAR(50);
-    DECLARE @end_date VARCHAR(50);
-
-    -- Get rank, employee_ID and department name of the employee requesting the leave
-    SELECT @rank = rank, @employee_ID = employee_ID, @department = dept_name
-    FROM Employee e INNER JOIN Annual_Leave al ON e.employee_ID = al.emp_ID
-    WHERE al.request_ID = @request_ID
-
-    -- Gets the employee_ID for the employee accepting the leave
-    SELECT @Emp1_ID = Emp1_ID
-    FROM Emploee_Approves_Employee eae INNER JOIN Employee e ON e.employee_ID = eae.Emp1_ID
-    WHERE @request_ID = Leave_ID AND e.dept_name = @department
-
-    -- Get rank of the employee accepting the leave
-    SET @Emp1_ID_rank = db.get_rank(@Emp1_ID)
-
-    /*UPDATE Leave
-    SET status = CASE 
-                    WHEN @rank>=5 THEN*/
-
-    -- Case 1: Employee is of rank 5 or 6 (Needs approval from Hr and Dean)
-    IF @rank>=5 
-    BEGIN
-        SELECT @start_date = start_date, @end_date = end_date
-        -- Needed for Is_On_Leave
-        FROM Leave
-        WHERE @request_ID = request_ID
-
-        SET @emp_approve_emp = dbo.get_approval_status(@request_ID, 'HR_Representative' +'_' +@department, 4)
-        -- Get hr approval
-        IF @Emp1_ID_rank = 3 AND dbo.Is_On_Leave(@Emp1_ID_rank, @from_date, @end_date) = 0 -- I think there is a problem here (The logic of it doesn't make sense to me) (@Emp1_ID_rank = 3 => ??????)
-        BEGIN
-            SET @upperboard_approve = dbo.get_approval_status(@request_ID, @department, 3)
-        -- get dean approval
-        END;
-
-        ELSE
-        BEGIN
-            SET @upperboard_approve = dbo.get_approval_status(@request_ID, @department, 4)
-        -- get vice-dean approval in case dean is on leave
-        END;
-
-        IF @emp_approve_emp = 'Approved' AND @upperboard_approve = 'Approved'
-        BEGIN
-            UPDATE Leave
-        SET status = 'Approved'
-        WHERE @request_ID = Leave_ID
-        END;
-
-        ELSE
-        BEGIN
-            UPDATE Leave
-        SET status = 'Rejected'
-        WHERE @request_ID = Leave_ID
-        END;
-    END
-
-    -- Case 2: Employee is a dean or vice-dean ranks 3 or 4 (Needs hr approval and upperboard approval => president or vice-president)
-    ELSE IF (@rank=3 AND @deparment <>  'HR') OR (@rank=4 AND @deparment <>  'HR')
-    BEGIN
-        SET @emp_approve_emp = dbo.get_approval_status(@request_ID, 'HR_Representative' + @department, 4)
-        -- Gets hr approval
-        SET @upperboard_approve = dbo.get_approval_status_pres(@request_ID)
-        -- This should be replaced by the function that omar made that checks if president/vice-president approved leave
-
-        IF @emp_approve_emp = 'Approved' AND @upperboard_approve = 'Approved'
-        BEGIN
-            UPDATE Leave
-        SET status = 'Approved'
-        WHERE @request_ID = Leave_ID
-        END;
-
-        ELSE
-        BEGIN
-            UPDATE Leave
-        SET status = 'Rejected'
-        WHERE @request_ID = Leave_ID
-        END;
-    END;
-
-    -- Case 3: Hr request for leave (Needs approval from higher rank HR)
-    ELSE IF (@rank = 4 AND @deparment = 'HR')
-    BEGIN
-        SET @emp_approve_emp = dbo.get_approval_status(@request_ID, 'HR_Representative' + @department, 3)
-        -- Gets approval from higher rank HR
-        IF @emp_approve_emp = 'Approved'
-        BEGIN
-            UPDATE Leave
-        SET status = 'Approved'
-        WHERE @request_ID = Leave_ID
-        END;
-
-        ELSE
-        BEGIN
-            UPDATE Leave
-        SET status = 'Rejected'
-        WHERE @request_ID = Leave_ID
-        END;
-    END;
-
-END
-GO*/
-
--- THE FOLLOWING IS AI VERSION OF THE CODE IMPLEMENTED ABOVE
--- I SENT IT MY OWN VERSION AND ASKED IT TO CHECK FOR MISTAKES
-
 CREATE PROCEDURE auto_update_annual
     @request_ID INT
--- Removed trailing comma
 AS
 BEGIN
-    -- Declarations
     DECLARE @Employee_ID INT;
     DECLARE @Department VARCHAR(50);
     DECLARE @Rank INT;
     DECLARE @Start_date DATE;
     DECLARE @End_date DATE;
 
-    -- Variables for Approvals
     DECLARE @Dean_ID INT;
     DECLARE @ViceDean_ID INT;
     DECLARE @Approver_ID INT;
     DECLARE @HR_Representative_Status VARCHAR(50);
     DECLARE @UpperBoard_Status VARCHAR(50);
 
-    -- 1. Get Details of the Applicant (Employee Requesting Leave)
     SELECT
         @Employee_ID = e.ID,
-        @Department = e.dept_name, -- Assuming dept_name is in Employee or derived via Join
+        @Department = e.dept_name,
         @Start_date = l.start_date,
         @End_date = l.end_date
     FROM Employee e
         INNER JOIN Annual_Leave al ON e.employee_ID = al.emp_ID INNER JOIN [Leave] l ON al.request_ID = l.request_ID
-    -- Adjusted column names to standard
     WHERE l.request_ID = @request_ID;
 
-    -- Get Rank (Assuming rank is in Role table linked to Employee)
     SELECT TOP 1
         @Rank = r.rank
     FROM Role r
         INNER JOIN Employee_Role er ON r.role_name = er.role_name
     WHERE er.employee_ID = @Employee_ID
     ORDER BY r.rank ASC;
-    -- Get highest rank (lowest number)
 
-    -- =========================================================================
-    -- CASE 1: Employee is Lecturer (5) or TA (6)
-    -- Needs HR Representative + Dean (or Vice Dean if Dean is on leave)
-    -- =========================================================================
     IF @Rank >= 5 
     BEGIN
-        -- A. Check HR Representative Approval
         SELECT @HR_Representative_Status = status
         FROM Employee_Approve_Leave eal
             INNER JOIN Employee_Role er ON eal.Emp1_ID = er.employee_ID
         WHERE eal.Leave_ID = @request_ID
             AND er.role_name = 'HR_Representative';
-        -- Simplified check
-
-        -- B. Determine who acts as the "Dean" approver
-        -- Find the Dean of this department
+        
         SELECT @Dean_ID = e.employee_ID
         FROM Employee e
             INNER JOIN Employee_Role er ON e.employee_ID = er.employee_ID
         WHERE er.role_name = 'Dean' AND e.dept_name = @Department;
 
-        -- Find the Vice Dean of this department
         SELECT @ViceDean_ID = e.employee_ID
         FROM Employee e
             INNER JOIN Employee_Role er ON e.employee_ID = er.employee_ID
         WHERE er.role_name = 'Vice Dean' AND e.dept_name = @Department;
-
-        -- LOGIC FIX: Check if Dean is on Leave 
+ 
         IF dbo.Is_On_Leave(@Dean_ID, @Start_date, @End_date) = 1
         BEGIN
-            -- Dean is absent, Vice Dean approves 
             SET @Approver_ID = @ViceDean_ID;
         END
         ELSE
         BEGIN
-            -- Dean is present, Dean approves
             SET @Approver_ID = @Dean_ID;
         END
 
-        -- Check the status of that specific approver
         SELECT @UpperBoard_Status = status
         FROM Employee_Approve_Leave
         WHERE Leave_ID = @request_ID AND Emp1_ID = @Approver_ID;
 
-        -- Final Update
         IF LOWER(@HR_Representative_Status) = 'approved' AND LOWER(@UpperBoard_Status) = 'approved'
         BEGIN
             UPDATE [Leave] SET final_approval_status = 'rpproved' WHERE request_ID = @request_ID;
@@ -782,19 +510,13 @@ BEGIN
         END
     END
 
-    -- =========================================================================
-    -- CASE 2: Applicant is Dean (3) or Vice Dean (4)
-    -- Approved by President + HR Representative [cite: 61, 62]
-    -- =========================================================================
     ELSE IF (@Rank = 3 OR @Rank = 4) AND @Department <> 'HR'
     BEGIN
-        -- Check HR Representative Approval
         SELECT @HR_Representative_Status = status
         FROM Employee_Approve_Leave eal
             INNER JOIN Employee_Role er ON eal.Emp1_ID = er.employee_ID
         WHERE eal.Leave_ID = @request_ID AND er.role_name = 'HR_Representative';
 
-        -- Check President Approval
         SELECT @UpperBoard_Status = status
         FROM Employee_Approve_Leave eal
             INNER JOIN Employee_Role er ON eal.Emp1_ID = er.employee_ID
@@ -810,20 +532,13 @@ BEGIN
         END
     END
 
-    -- =========================================================================
-    -- CASE 3: Applicant is HR (Rank 4, Dept HR)
-    -- Approved by HR Manager + President [cite: 63, 64]
-    -- =========================================================================
     ELSE IF @Rank = 4 AND @Department = 'HR'
     BEGIN
-        -- Check HR Manager Approval
         SELECT @HR_Representative_Status = status
-        -- Reusing variable
         FROM Employee_Approve_Leave eal
             INNER JOIN Employee_Role er ON eal.Emp1_ID = er.employee_ID
         WHERE eal.Leave_ID = @request_ID AND er.role_name = 'HR Manager';
 
-        -- Check President Approval
         SELECT @UpperBoard_Status = status
         FROM Employee_Approve_Leave eal
             INNER JOIN Employee_Role er ON eal.Emp1_ID = er.Employee_ID

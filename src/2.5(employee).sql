@@ -1,6 +1,7 @@
 USE University_HR_ManagementSystem_Team_97;
 GO
 
+
 CREATE FUNCTION EmployeeLoginValidation(@employee_ID int, @password varchar(50))
 RETURNS bit
 BEGIN
@@ -79,7 +80,6 @@ WHERE @employee_ID = d.emp_ID AND MONTH(a.[date]) = @month
 )
 GO
 
-
 CREATE FUNCTION Is_On_Leave(@employee_ID INT, @from DATE, @to DATE)
 RETURNS BIT
 AS
@@ -89,7 +89,7 @@ BEGIN
         SELECT 1
     FROM LEAVE AS l
         INNER JOIN (
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                SELECT request_id
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        SELECT request_id
             FROM Annual_Leave
             WHERE emp_id = @Employee_ID
         UNION ALL
@@ -111,9 +111,9 @@ BEGIN
         ) AS subleaves ON l.request_id = subleaves.request_id
         INNER JOIN Employee e ON e.employee_id = @employee_ID
     WHERE 
-        l.start_date <= @to AND l.end_date >= @from
+            l.start_date <= @to AND l.end_date >= @from
         AND NOT (e.employment_status = 'resigned')
-        AND LOWER(l.final_approval_status) IN ('approved', 'pending')
+        AND l.final_approval_status IN ('approved', 'pending')
     )
     SET @Onleave = 1;
 
@@ -177,18 +177,15 @@ BEGIN
         RETURN;
     END
 
-    -- Check C: getting my department
     SELECT @my_dept = dept_name
     FROM Employee
     WHERE employee_ID = @employee_ID;
-
-    --get dep of replacment employee
+    e
     SELECT @dep_name_replacement = dept_name
     FROM Employee e
     WHERE e.employee_ID = @replacement_emp
 
-    --check if replacment employee is on leave
-    IF dbo.is_on_leave(@replacement_emp, @start_date, @end_date) = 1
+    IF dbo.is_on_leave(@replacement_emp, @compensation_date, @compensation_date) = 1
     BEGIN
         PRINT 'replacment employee is on leave'
         UPDATE Leave
@@ -197,7 +194,6 @@ BEGIN
         RETURN;
     END
 
-    --check if both employees are the same department
     IF @my_dept <> @dep_name_replacement
     BEGIN
         PRINT 'replacement employee is not from the same department'
@@ -251,7 +247,7 @@ GO
 CREATE FUNCTION Status_leaves(@employee_ID INT)
 RETURNS TABLE
 AS
-RETURN (                                                             SELECT al.request_ID,
+RETURN (                                                                     SELECT al.request_ID,
         l.date_of_request,
         l.final_approval_status AS status
     FROM Annual_Leave aL
@@ -268,7 +264,6 @@ UNION
         AND DATEDIFF(month, GETDATE(), le.date_of_request) = 0
 )
 GO
-
 
 CREATE PROCEDURE Upperboard_approve_annual
     @request_ID INT,
@@ -292,7 +287,6 @@ WHERE e.dept_name = e1.dept_name
 EXEC dbo.auto_update_annual @request_id;
 GO
 
--- My new function
 CREATE PROCEDURE Dean_andHR_Evaluation
     @employee_ID INT,
     @rating INT,
@@ -319,7 +313,6 @@ CREATE PROCEDURE Submit_accidental
     @end_date DATE
 AS
 BEGIN
-    -- 1. VALIDATION: Accidental leaves must be exactly 1 day (Section 1.4).
     IF @start_date <> @end_date
     BEGIN
         PRINT 'Error: Accidental leaves can only be for 1 day (Start Date must equal End Date).';
@@ -333,7 +326,6 @@ BEGIN
     -- 3. Get the ID of the row we just created
     SET @request_ID = SCOPE_IDENTITY();
 
-    -- 4. Insert into the specific 'Accidental_Leave' table
     INSERT INTO Accidental_Leave
         (request_id, emp_id)
     VALUES
@@ -354,7 +346,6 @@ CREATE PROCEDURE Submit_medical
     @start_date DATE,
     @end_date DATE,
     @type varchar(50),
-    -- 'sick' or 'maternity'
     @insurance_status bit,
     @disability_details varchar(50),
     @document_description varchar(50),
@@ -430,7 +421,6 @@ BEGIN
         RETURN;
     END
 
-    -- We check if they already have an 'Approved' unpaid leave in the current year.
     IF EXISTS (
         SELECT 1
     FROM Unpaid_Leave ul
@@ -447,12 +437,10 @@ BEGIN
     DECLARE @request_ID INT;
     DECLARE @dept_name VARCHAR(50);
 
-    -- Get Dept Name for logic later
     SELECT @dept_name = dept_name
     FROM Employee
     WHERE employee_ID = @employee_ID;
 
-    -- 4. Insert into generic Leave table
     INSERT INTO Leave
         (date_of_request, start_date, end_date)
     VALUES
@@ -460,13 +448,11 @@ BEGIN
 
     SET @request_ID = SCOPE_IDENTITY();
 
-    -- 5. Insert into Unpaid_Leave table
     INSERT INTO Unpaid_Leave
         (request_id, emp_id)
     VALUES
         (@request_ID, @employee_ID);
 
-    -- 6. Insert Document (if provided)
     IF @file_name IS NOT NULL OR @document_description IS NOT NULL
     BEGIN
         INSERT INTO Document
@@ -475,8 +461,6 @@ BEGIN
             (@request_ID, @employee_ID, @document_description, @file_name, 'valid', 'Memo');
     END
 
-    -- CASE A: The Applicant is an HR Employee
-    -- Guideline: "Must be approved/rejected by the President and HR Manager."
     IF @dept_name = 'HR'
     BEGIN
         INSERT INTO Employee_Approve_Leave
@@ -489,8 +473,6 @@ BEGIN
             OR (r.rank = 3 AND e.dept_name = 'HR');
     END
 
-    -- CASE B: The Applicant is a Dean or Vice Dean
-    -- Guideline: "Must be approved/rejected by the President and HR Representative."
     ELSE IF EXISTS (
         SELECT 1
     FROM Employee_Role er
@@ -507,7 +489,6 @@ BEGIN
         WHERE r.rank <= 2 OR dept_name = 'HR'
     END
 
-    -- CASE C: Regular Employee (Dean of their Dept + HR)
     ELSE
     BEGIN
         INSERT INTO Employee_Approve_Leave
@@ -524,20 +505,16 @@ GO
 
 
 CREATE PROCEDURE Upperboard_approve_unpaids
-    -- Goal: As a Dean/Vice-dean/President I can approve/reject unpaid leaves. memo document submitted with a valid reason,
-    -- the leave gets approved.
     @request_ID INT,
     @Upperboard_ID INT
 AS
 BEGIN
-    -- Requirement: "In case a memo document is submitted with a valid reason, the leave gets approved."
-    -- If a document is found, the status becomes 'Approved'. If not, it becomes 'Rejected'.
     UPDATE Employee_Approve_Leave
     SET status = CASE 
                     WHEN EXISTS (
                         SELECT 1
     FROM Document
-    WHERE request_id = @request_ID
+    WHERE Leave_ID = @request_ID
         AND status = 'valid' 
                     ) THEN 'Approved' 
                     ELSE 'Rejected' 
@@ -548,13 +525,7 @@ END
 GO
 
 
-
-
-
-
 CREATE PROCEDURE Submit_compensation
-    -- Goal: Apply for a compensation leave. Populate the approval table
-    -- accordingly with the corresponding employees for the leaves’ approval based on the hierarchy
     @employee_ID INT,
     @compensation_date DATE,
     @reason VARCHAR(50),
@@ -570,7 +541,6 @@ BEGIN
         RETURN;
     END
 
-    -- Check B: "Spent at least 8 hours during his/her day off"
     DECLARE @hours_worked INT;
 
     SELECT @hours_worked = DATEDIFF(HOUR, check_in_time, check_out_time)
@@ -584,33 +554,27 @@ BEGIN
         RETURN;
     END
 
-    -- Check C: Verify that @date_of_original_workday was actually their "Official Day Off" and get their dept
     DECLARE @official_day_off VARCHAR(50);
     SELECT @official_day_off = official_day_off, @my_dept = dept_name
     FROM Employee
     WHERE employee_ID = @employee_ID;
 
-    --get dep of replacment employee
     SELECT @dep_name_replacement = dept_name
     FROM Employee e
     WHERE e.employee_ID = @replacement_ID
 
-    --check if replacment employee is on leave
-    IF is_on_leave(@replacement_emp, @compensation_date, @compensation_date) = 1
+    IF dbo.is_on_leave(@replacement_emp, @compensation_date, @compensation_date) = 1
     BEGIN
         PRINT 'Error: replacment employee is on leave'
         RETURN;
     END
 
-    --check if both employees are the same department
     IF @my_dept <> @dep_name_replacement
     BEGIN
         PRINT 'Error: replacement employee is not from the same department'
         RETURN;
     END
 
-    -- DATENAME returns 'Saturday', 'Sunday', etc. matching the expected format of official_day_off
-    -- Not sure of this one
     IF DATENAME(WEEKDAY, @date_of_original_workday) <> @official_day_off
     BEGIN
         PRINT 'Error: The date of original work must match your official day off.';
@@ -621,7 +585,6 @@ BEGIN
     DECLARE @rank INT;
     DECLARE @dept_name VARCHAR(50);
 
-    -- Get the employee's rank and department for Approval Logic
     SELECT @rank = MAX(r.rank),
         @dept_name = e.dept_name
     FROM Employee e
@@ -630,7 +593,6 @@ BEGIN
     WHERE e.employee_id = @Employee_ID
     GROUP BY e.dept_name;
 
-    -- Insert into generic Leave table (Duration is usually 1 day for compensation)
     INSERT INTO Leave
         (date_of_request, start_date, end_date)
     VALUES
@@ -638,14 +600,12 @@ BEGIN
 
     SET @request_ID = SCOPE_IDENTITY();
 
-    -- Insert into specific Compensation_Leave table
     INSERT INTO Compensation_Leave
         (request_id, emp_id, reason, original_work_date, replacement_emp)
     VALUES
         (@request_ID, @employee_ID, @reason, @date_of_original_workday, @replacement_emp);
 
 
-    -- Case A: HR Employees -> Need approval from higher HR
     IF EXISTS(
         SELECT employee_id
     FROM Employee
@@ -662,7 +622,6 @@ BEGIN
             AND r.rank < @rank
         GROUP BY e.employee_id
     END
-    --case where employee is dean/vice dean or regular
     ELSE
     BEGIN
         INSERT INTO Employee_Approve_Leave
