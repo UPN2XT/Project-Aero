@@ -330,13 +330,49 @@ END
 GO
 
 CREATE PROCEDURE HR_approval_comp
-    @request_ID int, @HR_ID int
+    -- TODO::add exute when the function is ready
+    @request_ID int,
+    @HR_ID int
 AS
 BEGIN
-    UPDATE Employee_Approve_Leave
-    SET status = 'approved'
-    WHERE Emp1_ID = @HR_ID AND Leave_ID = @request_ID;
-    UPDATE Leave SET final_approval_status = 'approved' WHERE request_ID = @request_ID;
+
+    if EXISTS(
+    SELECT eal.[status]
+    from Employee_Approve_Leave eal
+    WHERE @request_ID = eal.Leave_ID AND EXISTS(SELECT eal2.[status]
+        from Employee_Approve_Leave eal2
+        WHERE eal2.[status]='rejected' and @request_ID = eal.Leave_ID))
+    BEGIN
+        update Leave
+    set final_approval_status = 'rejected'
+    where @request_ID = request_ID
+        print 'Error:employee within the hierarchy rejected the leave'
+        RETURN;
+    END;
+
+    IF @request_ID IN (SELECT request_id
+    FROM Compensation_Leave)
+UPDATE Employee_Approve_Leave
+       SET status =
+    
+            CASE WHEN EXISTS (
+				SELECT cl.request_id
+    FROM Compensation_Leave cl
+    WHERE cl.request_id = @request_id
+        AND EXISTS (
+					SELECT attendance_ID
+        FROM Attendance
+        WHERE DATENAME(WEEKDAY, cl.date_of_original_workday) IN (
+						SELECT official_day_off
+            FROM Employee
+            WHERE Employee.emp_id = cl.emp_id
+					) AND MONTH(Attendance.date) = MONTH(cl.date_of_original_workday)
+            AND YEAR(Attendance.date) = YEAR(cl.date_of_original_workday)
+				)
+			) THEN 'approved'
+			ELSE 'rejected'
+			END
+		WHERE Emp1_ID = @HR_ID AND Leave_ID=@request_id
 END
 GO
 
