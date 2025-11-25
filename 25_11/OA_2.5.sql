@@ -60,7 +60,7 @@ BEGIN
         SELECT 1
     FROM LEAVE AS l
         INNER JOIN (
-                                                SELECT request_id
+                                                                                    SELECT request_id
             FROM Annual_Leave
             WHERE emp_id = @Employee_ID
         UNION ALL
@@ -94,7 +94,7 @@ GO
 
 CREATE FUNCTION Status_leaves(@employee_ID INT)
 RETURNS TABLE AS RETURN (
-        SELECT al.request_ID, l.date_of_request, l.final_approval_status AS status
+            SELECT al.request_ID, l.date_of_request, l.final_approval_status AS status
     FROM Annual_Leave al INNER JOIN Leave l ON al.request_ID = l.request_ID
     WHERE al.emp_ID = @employee_ID
 UNION
@@ -121,6 +121,7 @@ END
 GO
 
 CREATE PROCEDURE Submit_annual
+    -- x
     @employee_ID INT,
     @replacement_emp INT,
     @start_date DATE,
