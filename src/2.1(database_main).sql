@@ -344,7 +344,7 @@ GO
 
 EXEC createAllTables
 
-EXEC dropAllTables
+--EXEC dropAllTables
 
 EXEC clearAllTables
 GO
