@@ -24,7 +24,7 @@ FROM dbo.Deductions_Attendance(1,9)
 SELECT emp_ID, l.*
 FROM Leave l
     INNER JOIN (
-                                                SELECT request_id, emp_ID
+                                                                                                            SELECT request_id, emp_ID
         FROM Annual_Leave
     UNION ALL
         SELECT request_id, emp_id
@@ -61,8 +61,14 @@ CREATE PROCEDURE Submit_annual
 
 EXECUTE dbo.Submit_annual 4, 5, '2025-9-01', '2025-9-26'
 
-SELECT e.employee_ID, role_name
+SELECT e.employee_ID, role_name, [status]
 FROM Employee_Approve_Leave eal
     INNER JOIN Employee e ON eal.Emp1_ID = e.employee_ID
     INNER JOIN Employee_Role er ON er.emp_ID = e.employee_ID
-WHERE eal.Leave_ID = 30
+WHERE eal.Leave_ID = 29
+
+SELECT *
+FROM dbo.Status_leaves(1)
+
+EXECUTE dbo.Upperboard_approve_annual 27, 11, 3
+

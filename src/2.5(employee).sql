@@ -89,7 +89,7 @@ BEGIN
         SELECT 1
     FROM LEAVE AS l
         INNER JOIN (
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            SELECT request_id
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    SELECT request_id
             FROM Annual_Leave
             WHERE emp_id = @Employee_ID
         UNION ALL
@@ -248,15 +248,12 @@ BEGIN
 END 
 GO
 
--- as3
 CREATE FUNCTION Status_leaves(@employee_ID INT)
--- Goal: Retrieve the status of all my submitted annual and accidental leaves during the current month.
 RETURNS TABLE
 AS
-RETURN (
-                                                                                                        SELECT al.request_ID,
+RETURN (                 SELECT al.request_ID,
         l.date_of_request,
-        al.final_approval_status AS status
+        l.final_approval_status AS status
     FROM Annual_Leave aL
         INNER JOIN Leave l ON al.request_ID = l.request_ID
     WHERE al.emp_ID = @employee_ID
@@ -264,7 +261,7 @@ RETURN (
 UNION
     SELECT acl.request_ID,
         le.date_of_request,
-        acl.final_approval_status AS status
+        le.final_approval_status AS status
     FROM Accidental_Leave acl
         INNER JOIN Leave le ON acl.request_ID = le.request_ID
     WHERE acl.emp_ID = @employee_ID
@@ -272,11 +269,8 @@ UNION
 )
 GO
 
--- as3
--- when rejected leave status should be updated aswll
-CREATE PROCEDURE Upperboard_approve_annual--TODO check if dean is on leave to let vice dean take over 
-    -- Goal: As a Dean/Vice-dean/President I can approve/reject annual leaves. 
-    --In case the person of replacement isn't on leave and works in the same department, the leave gets approved.
+
+CREATE PROCEDURE Upperboard_approve_annual
     @request_ID INT,
     @Upperboard_ID INT,
     @replacement_ID INT
@@ -291,11 +285,11 @@ FROM Employee e
     INNER JOIN Employee e1 ON e1.employee_ID = al.emp_ID
 WHERE e.dept_name = e1.dept_name
     AND e.employee_ID = @replacement_ID
-    AND Is_On_Leave(@replacement_ID, l.start_date, end_date) = 0
+    AND dbo.Is_On_Leave(@replacement_ID, l.start_date, end_date) = 0
                 ) then 'Approved' ELSE 'Rejected'
             END
             WHERE Emp1_ID = @Upperboard_ID AND Leave_ID=@request_id
-EXEC auto_update_annual @request_id;
+EXEC dbo.auto_update_annual @request_id;
 GO
 
 -- My new function
