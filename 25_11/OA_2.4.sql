@@ -199,28 +199,30 @@ BEGIN
     END
     WHERE Emp1_ID = @HR_ID AND Leave_ID = @request_ID;
 
-    IF lower(@Type) = 'accidental' and (select status
-        from Employee_Approve_Leave
-        where @request_ID = Leave_ID AND @HR_ID = Emp1_ID) = 'approved'
+     IF lower(@Type) = 'annual'
+        EXEC dbo.auto_update_annual @request_id;
+    ELSE
+        EXEC dbo.auto_update_accedintal_leave @request_id;
+
+    IF lower(@Type) = 'accidental' and (select final_approval_status
+        from Leave
+        where @request_ID = Leave_ID) = 'approved'
     BEGIN
         UPDATE Employee
     set accidental_balance = accidental_balance-1
     where employee_ID = @emp_id
     END
 
-    IF lower(@Type) = 'annual' and (select status
-        from Employee_Approve_Leave
-        where @request_ID = Leave_ID AND @HR_ID = Emp1_ID) = 'approved'
+    IF lower(@Type) = 'annual' and (select final_approval_status
+        from Leave
+        where @request_ID = Leave_ID) = 'approved'
     BEGIN
         UPDATE Employee
     set annual_balance = annual_balance - @datediff
     where employee_ID = @emp_id
     END
 
-    IF lower(@Type) = 'annual'
-        EXEC dbo.auto_update_annual @request_id;
-    ELSE
-        EXEC dbo.auto_update_accedintal_leave @request_id;
+   
 END
 GO
 
