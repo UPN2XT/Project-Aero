@@ -20,7 +20,7 @@ CREATE PROCEDURE HR_approval_an_acc
     @HR_ID int
 AS
 BEGIN
-    IF @request_ID IN (                                                                                                                                                                                SELECT request_id
+    IF @request_ID IN (                                                                                                                                                                                        SELECT request_id
         FROM Accidental_Leave
     UNION
         SELECT request_id
