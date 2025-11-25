@@ -256,7 +256,6 @@ END
 GO
 
 CREATE PROCEDURE HR_approval_comp
-    -- TODO::add exute when the function is ready
     @request_ID int,
     @HR_ID int
 AS
@@ -299,6 +298,7 @@ UPDATE Employee_Approve_Leave
 			ELSE 'rejected'
 			END
 		WHERE Emp1_ID = @HR_ID AND Leave_ID=@request_id
+        exec auto_update_annual_compensation @request_id
 END
 GO
 
