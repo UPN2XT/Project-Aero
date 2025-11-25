@@ -89,7 +89,7 @@ BEGIN
         SELECT 1
     FROM LEAVE AS l
         INNER JOIN (
-                                                                                                                                                                                                                                SELECT request_id
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            SELECT request_id
             FROM Annual_Leave
             WHERE emp_id = @Employee_ID
         UNION ALL
@@ -121,10 +121,6 @@ BEGIN
 END
 GO
 
-DROP FUNCTION is_on_leave
-
---end of 11/14 checks and update
-
 CREATE FUNCTION get_rank (@Employee_ID INT)
 RETURNS INT
 BEGIN
@@ -138,10 +134,7 @@ BEGIN
 END
 GO
 
--- as3: this need revisting to make sure it complies with the guidlines in 1 also that it is actually working
--- as3: TODO: j - n follow similar structure to this
 CREATE PROCEDURE Submit_annual
-    -- Goal: Apply for an annual leave. Populate the approval table accordingly
     @employee_ID INT,
     @replacement_emp INT,
     @start_date DATE,
@@ -152,8 +145,8 @@ DECLARE @my_dept varchar(50);
 BEGIN
     DECLARE @request_ID INT;
     DECLARE @rank INT;
-    DECLARE @dept_name INT;
-    SET @rank = get_rank(@employee_id);
+    DECLARE @dept_name VARCHAR(50);
+    SET @rank = dbo.get_rank(@employee_id);
 
     SELECT @dept_name = dept_name
     FROM Employee
@@ -169,13 +162,18 @@ BEGIN
     VALUES
         (@request_id, @employee_id, @replacement_emp);
 
+    PRINT @request_id
+
     IF EXISTS(
         SELECT type_of_contract
     FROM Employee
-    WHERE @employee_ID = employee_ID AND type_of_contract = 'Part time'
+    WHERE @employee_ID = employee_ID AND type_of_contract = 'part_time'
     )
     BEGIN
-        PRINT 'Error: Part time employees are not eligble for annual leave';
+        PRINT 'Part time employees are not eligble for annual leave';
+        UPDATE Leave
+        SET final_approval_status = 'Rejected'
+        WHERE request_ID = @request_ID
         RETURN;
     END
 
@@ -187,19 +185,25 @@ BEGIN
     --get dep of replacment employee
     SELECT @dep_name_replacement = dept_name
     FROM Employee e
-    WHERE e.employee_ID = @replacement_ID
+    WHERE e.employee_ID = @replacement_emp
 
     --check if replacment employee is on leave
-    IF is_on_leave(@replacement_emp, @compensation_date, @compensation_date) = 1
+    IF dbo.is_on_leave(@replacement_emp, @start_date, @end_date) = 1
     BEGIN
-        PRINT 'Error: replacment employee is on leave'
+        PRINT 'replacment employee is on leave'
+        UPDATE Leave
+        SET final_approval_status = 'Rejected'
+        WHERE request_ID = @request_ID
         RETURN;
     END
 
     --check if both employees are the same department
     IF @my_dept <> @dep_name_replacement
     BEGIN
-        PRINT 'Error: replacement employee is not from the same department'
+        PRINT 'replacement employee is not from the same department'
+        UPDATE Leave
+        SET final_approval_status = 'Rejected'
+        WHERE request_ID = @request_ID
         RETURN;
     END
 
@@ -223,7 +227,7 @@ BEGIN
         INNER JOIN Employee_Role er ON er.emp_id = e.employee_ID
         INNER JOIN Role r ON r.role_name = er.role_name
     WHERE employee_ID = @employee_id
-        AND role_name IN ('Dean', 'Vice Dean')
+        AND r.role_name IN ('Dean', 'Vice Dean')
     )
     INSERT INTO Employee_Approve_Leave
         (Emp1_ID, Leave_ID)
@@ -231,7 +235,7 @@ BEGIN
     FROM Employee e
         INNER JOIN Employee_Role er ON er.emp_id = e.employee_ID
         INNER JOIN Role r ON r.role_name = er.role_name
-    WHERE r.rank <= 2
+    WHERE r.rank <= 2 OR dept_name = 'HR'
     ELSE
     INSERT INTO Employee_Approve_Leave
         (Emp1_ID, Leave_ID)
@@ -239,9 +243,10 @@ BEGIN
     FROM Employee e
         INNER JOIN Employee_Role er ON er.emp_id = e.employee_ID
         INNER JOIN Role r ON r.role_name = er.role_name
-    WHERE (r.role_name = 'Dean' AND e.dept_name=@dep_name) OR e.dept_name = 'HR'
+    WHERE (r.role_name = 'Dean' AND e.dept_name=@my_dept) OR e.dept_name = 'HR'
 
-END GO
+END 
+GO
 
 -- as3
 CREATE FUNCTION Status_leaves(@employee_ID INT)
@@ -249,7 +254,7 @@ CREATE FUNCTION Status_leaves(@employee_ID INT)
 RETURNS TABLE
 AS
 RETURN (
-                                                                            SELECT al.request_ID,
+                                                                                                        SELECT al.request_ID,
         l.date_of_request,
         al.final_approval_status AS status
     FROM Annual_Leave aL
