@@ -55,7 +55,8 @@ BEGIN
 
     SELECT @TotalHours = SUM(DATEDIFF(HOUR, check_in_time, check_out_time))
     FROM Attendance
-    WHERE emp_ID = @employee_ID AND MONTH(date) = MONTH(GETDATE()) AND YEAR(date) = YEAR(GETDATE());
+    WHERE a.emp_ID = @Employee_id
+        AND a.date >= DATEADD(day, -30, GETDATE());
 
     SELECT TOP 1
         @OvertimeFactor = r.percentage_overtime
