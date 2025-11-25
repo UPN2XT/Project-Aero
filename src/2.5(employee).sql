@@ -89,7 +89,7 @@ BEGIN
         SELECT 1
     FROM LEAVE AS l
         INNER JOIN (
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    SELECT request_id
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            SELECT request_id
             FROM Annual_Leave
             WHERE emp_id = @Employee_ID
         UNION ALL
@@ -251,7 +251,7 @@ GO
 CREATE FUNCTION Status_leaves(@employee_ID INT)
 RETURNS TABLE
 AS
-RETURN (                 SELECT al.request_ID,
+RETURN (                                         SELECT al.request_ID,
         l.date_of_request,
         l.final_approval_status AS status
     FROM Annual_Leave aL
@@ -312,22 +312,8 @@ BEGIN
 END
 GO
 
--- as3 / OLD FUNCTION
--- CREATE PROCEDURE Dean_andHR_Evaluation
---     @employee_ID INT,
---     @rating INT,
---     @comment VARCHAR(40),
---     @semester CHAR(3)
--- AS
--- INSERT INTO Performance
---     (emp_ID, rating, comments, semester)
--- VALUES
---     (@employee_id, @rating, @comment, @semester)
--- GO
-
 CREATE PROCEDURE Submit_accidental
-    -- Goal: Apply for an accidental leave. Populate the approval table accordingly with the corresponding 
-    -- employees for the leaves’ approval based on the hierarchy
+    --TODO://TEST
     @employee_ID INT,
     @start_date DATE,
     @end_date DATE
@@ -339,29 +325,11 @@ BEGIN
         PRINT 'Error: Accidental leaves can only be for 1 day (Start Date must equal End Date).';
         RETURN;
     END
-
-    DECLARE @request_ID INT;
-    DECLARE @rank INT;
-    DECLARE @dept_name VARCHAR(50);
-
-    -- Get the employee's rank
-    SELECT @rank = MAX(r.rank)
-    FROM Employee e
-        INNER JOIN Employee_Role er ON er.emp_id = e.employee_ID
-        INNER JOIN Role r ON r.role_name = er.role_name
-    WHERE e.employee_ID = @Employee_ID;
-
-    -- Get the employee's department
-    SELECT @dept_name = dept_name
-    FROM Employee
-    WHERE Employee.employee_ID = @employee_id;
-
-    -- 2. Insert into the main generic 'Leave' table
     INSERT INTO Leave
         (date_of_request, start_date, end_date)
     VALUES
         (GETDATE(), @start_date, @end_date);
-
+    DECLARE @request_ID INT;
     -- 3. Get the ID of the row we just created
     SET @request_ID = SCOPE_IDENTITY();
 
@@ -371,64 +339,17 @@ BEGIN
     VALUES
         (@request_ID, @employee_id);
 
-    -- 5. POPULATE APPROVALS (Logic copied from Submit_annual)
-
-    -- Case A: If the employee is in HR, they need approval from higher-ranking HR staff.
-    IF EXISTS(
-        SELECT employee_ID
+    INSERT INTO Employee_Approve_Leave
+        (Emp1_ID, Leave_ID)
+    SELECT employee_id, @request_ID
     FROM Employee
-    WHERE employee_ID = @employee_id AND dept_name='HR'
-    )
-    BEGIN
-        INSERT INTO Employee_Approve_Leave
-            (Emp1_ID, Leave_ID)
-        SELECT e.employee_ID, @request_id
-        FROM Employee e
-            INNER JOIN Employee_Role er ON er.emp_id = e.employee_ID
-            INNER JOIN Role r ON r.role_name = er.role_name
-        WHERE e.dept_name = 'HR'
-            AND r.rank < @rank
-        GROUP BY e.employee_ID
-    END
-
-    -- Case B: If the employee is a Dean or Vice Dean, they need approval from President/Vice President (Rank 1 or 2).
-    ELSE IF EXISTS (
-        SELECT e.employee_ID
-    FROM Employee e
-        INNER JOIN Employee_Role er ON er.emp_id = e.employee_ID
-        INNER JOIN Role r ON r.role_name = er.role_name
-    WHERE e.employee_ID = @employee_id
-        AND r.role_name IN ('Dean', 'Vice Dean')
-    )
-    BEGIN
-        INSERT INTO Employee_Approve_Leave
-            (Emp1_ID, Leave_ID)
-        SELECT e.employee_ID, @request_id
-        FROM Employee e
-            INNER JOIN Employee_Role er ON er.emp_id = e.employee_ID
-            INNER JOIN Role r ON r.role_name = er.role_name
-        WHERE r.rank <= 2
-    END
-
-    -- Case C: Regular employees (Lecturers, TAs, etc.) need approval from their Dean AND HR.
-    ELSE
-    BEGIN
-        INSERT INTO Employee_Approve_Leave
-            (Emp1_ID, Leave_ID)
-        SELECT e.employee_ID, @request_id
-        FROM Employee e
-            INNER JOIN Employee_Role er ON er.emp_id = e.employee_ID
-            INNER JOIN Role r ON r.role_name = er.role_name
-        WHERE (r.role_name = 'Dean' AND e.dept_name = @dept_name)
-            OR e.dept_name = 'HR'
-    END
+    WHERE Employee.dept_name='HR'
 END
 GO
 
+
 CREATE PROCEDURE Submit_medical
-    -- Goal: Apply for a medical leave. Populate the approval table 
-    -- accordingly with the corresponding employees for the leaves’ approval based on the hierarchy.
-    -- It's pretty similar to the function above it 
+    -- TODO://test
     @employee_ID INT,
     @start_date DATE,
     @end_date DATE,
@@ -440,8 +361,6 @@ CREATE PROCEDURE Submit_medical
     @file_name varchar(50)
 AS
 BEGIN
-    -- 1. VALIDATION: Check for Part-Time + Maternity rule (Section 1.4)
-    -- "Employees who are part-time are not eligible for... maternity leaves."
     IF @type = 'maternity'
     BEGIN
         DECLARE @contract_type VARCHAR(50);
@@ -457,94 +376,31 @@ BEGIN
     END
 
     DECLARE @request_ID INT;
-    DECLARE @rank INT;
-    DECLARE @dept_name VARCHAR(50);
 
-    -- Get the employee's rank
-    SELECT @rank = MAX(r.rank)
-    FROM Employee e
-        INNER JOIN Employee_Role er ON er.emp_id = e.employee_ID
-        INNER JOIN Role r ON r.role_name = er.role_name
-    WHERE e.employee_ID = @Employee_ID;
-
-    -- Get the employee's department
-    SELECT @dept_name = dept_name
-    FROM Employee
-    WHERE Employee.employee_ID = @employee_id;
-
-    -- 2. Insert into the main generic 'Leave' table
     INSERT INTO Leave
         (date_of_request, start_date, end_date)
     VALUES
         (GETDATE(), @start_date, @end_date);
 
-    -- 3. Get the new request_ID
     SET @request_ID = SCOPE_IDENTITY();
 
-    -- 4. Insert into the specific 'Medical_Leave' table
     INSERT INTO Medical_Leave
         (request_id, emp_id, type, insurance_status, disability_details)
     VALUES
         (@request_ID, @employee_id, @type, @insurance_status, @disability_details);
 
 
-    -- For the documents type shit
-    IF @file_name IS NOT NULL OR @document_description IS NOT NULL
-    BEGIN
-        INSERT INTO Document
-            (request_id, emp_id, description, file_name, status)
-        VALUES
-            (@request_ID, @employee_ID, @document_description, @file_name, 'valid');
-    END
-    -- Case A: HR Employees -> Need approval from higher HR
-    IF EXISTS(
-        SELECT employee_ID
+    INSERT INTO Document
+        (emp_id, description, file_name, status, [type], medical_ID)
+    VALUES
+        (@request_ID, @employee_ID, @document_description, @file_name, 'valid', 'Medical', @request_ID);
+
+    INSERT INTO Employee_Approve_Leave
+        (Emp1_ID, Leave_ID)
+    SELECT employee_id, @request_ID
     FROM Employee
-    WHERE employee_ID = @employee_ID AND dept_name='HR'
-    )
-    BEGIN
-        INSERT INTO Employee_Approve_Leave
-            (Emp1_ID, Leave_ID)
-        SELECT e.employee_ID, @request_id
-        FROM Employee e
-            INNER JOIN Employee_Role er ON er.emp_id = e.employee_ID
-            INNER JOIN Role r ON r.role_name = er.role_name
-        WHERE e.dept_name = 'HR'
-            AND r.rank < @rank
-        GROUP BY e.employee_ID
-    END
+    WHERE Employee.dept_name IN ('HR', 'Medical')
 
-    -- Case B: Dean/Vice Dean -> Need approval from President/Vice President (Rank 1 or 2)
-    ELSE IF EXISTS (
-        SELECT e.employee_ID
-    FROM Employee e
-        INNER JOIN Employee_Role er ON er.emp_id = e.employee_ID
-        INNER JOIN Role r ON r.role_name = er.role_name
-    WHERE e.employee_ID = @employee_id
-        AND r.role_name IN ('Dean', 'Vice Dean')
-    )
-    BEGIN
-        INSERT INTO Employee_Approve_Leave
-            (Emp1_ID, Leave_ID)
-        SELECT e.employee_ID, @request_id
-        FROM Employee e
-            INNER JOIN Employee_Role er ON er.emp_id = e.employee_ID
-            INNER JOIN Role r ON r.role_name = er.role_name
-        WHERE r.rank <= 2
-    END
-
-    -- Case C: Regular employees -> Need approval from their Dean AND HR
-    ELSE
-    BEGIN
-        INSERT INTO Employee_Approve_Leave
-            (Emp1_ID, Leave_ID)
-        SELECT e.employee_ID, @request_id
-        FROM Employee e
-            INNER JOIN Employee_Role er ON er.emp_id = e.employee_ID
-            INNER JOIN Role r ON r.role_name = er.role_name
-        WHERE (r.role_name = 'Dean' AND e.dept_name = @dept_name)
-            OR e.dept_name = 'HR'
-    END
 END
 GO
 

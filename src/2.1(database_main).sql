@@ -142,7 +142,7 @@ CREATE TABLE Document
     type VARCHAR(50),
     description VARCHAR(50),
     file_name VARCHAR(50),
-    creation_date DATE,
+    creation_date DATE DEFAULT GETDATE(),
     expiry_date DATE,
     status VARCHAR(50) CHECK (status IN ('valid', 'expired')),
     emp_ID INT,
