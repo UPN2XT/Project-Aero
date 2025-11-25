@@ -221,7 +221,7 @@ CREATE TABLE Employee_Approve_Leave
     Emp1_ID INT,
     Leave_ID INT,
     PRIMARY KEY(Emp1_ID,Leave_ID),
-    status VARCHAR(50),
+    status VARCHAR(50) default 'pending',
     FOREIGN KEY (Emp1_ID) REFERENCES Employee(employee_ID),
     FOREIGN KEY (Leave_ID) REFERENCES Leave(request_ID),
 );
@@ -332,13 +332,13 @@ DELETE FROM Leave
 DELETE FROM Employee
 DELETE FROM Role
 DELETE FROM Department
-DBCC CHECKIDENT ('Deduction', RESEED, 0)
-DBCC CHECKIDENT ('Document', RESEED, 0)
-DBCC CHECKIDENT ('Performance', RESEED, 0)
-DBCC CHECKIDENT ('Payroll', RESEED, 0)
-DBCC CHECKIDENT ('Attendance', RESEED, 0)
-DBCC CHECKIDENT ('Leave', RESEED, 0)
-DBCC CHECKIDENT ('Employee', RESEED, 0)
+DBCC CHECKIDENT ('Deduction', RESEED, 1)
+DBCC CHECKIDENT ('Document', RESEED, 1)
+DBCC CHECKIDENT ('Performance', RESEED, 1)
+DBCC CHECKIDENT ('Payroll', RESEED, 1)
+DBCC CHECKIDENT ('Attendance', RESEED, 1)
+DBCC CHECKIDENT ('Leave', RESEED, 1)
+DBCC CHECKIDENT ('Employee', RESEED, 1)
 GO
 
 

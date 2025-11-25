@@ -10,7 +10,7 @@ CREATE PROCEDURE Remove_Deductions
 AS
 DELETE d FROM Deduction d
 INNER JOIN Employee e on d.emp_ID = e.employee_ID
-WHERE e.employment_status ='resigned';
+WHERE LOWER(e.employment_status) ='resigned';
 GO
 
 CREATE PROCEDURE Update_Employment_Status
@@ -19,7 +19,7 @@ AS
 BEGIN
     UPDATE Employee
     SET employment_status = CASE
-            WHEN employment_status In ('notice_period', 'resigned') THEN employment_status
+            WHEN LOWER(employment_status) In ('notice_period', 'resigned') THEN employment_status
             WHEN dbo.Is_On_Leave(@Employee_ID, GETDATE(), GETDATE()) = 1 THEN 'onleave' 
             ELSE 'active'
         END 
@@ -57,7 +57,7 @@ BEGIN
     INSERT INTO Attendance ([date], [status], emp_ID)
     SELECT @CurrentDate, 'absent', E.employee_ID
     FROM Employee E
-    WHERE E.employment_status = 'active'
+    WHERE LOWER(E.employment_status) = 'active'
     AND E.employee_ID NOT IN (SELECT emp_ID FROM Attendance WHERE [date] = @CurrentDate);
 END 
 GO
@@ -116,7 +116,7 @@ AND EXISTS (
         UNION ALL SELECT request_ID, emp_ID FROM Compensation_Leave
     ) AS subleaves ON l.request_ID = subleaves.request_ID
     WHERE subleaves.emp_ID = @Employee_id 
-    AND l.final_approval_status = 'approved'
+    AND LOWER(l.final_approval_status) = 'approved'
     AND Attendance.date BETWEEN l.start_date AND l.end_date
 );
 GO
@@ -131,7 +131,7 @@ BEGIN
     IF @from_date > @to_date BEGIN PRINT 'Error: Start > End'; RETURN; END
     IF @Emp1_ID = @Emp2_ID BEGIN PRINT 'Error: Same Emp'; RETURN; END
 
-    IF EXISTS (SELECT 1 FROM Employee WHERE employee_ID = @Emp2_ID AND employment_status = 'resigned')
+    IF EXISTS (SELECT 1 FROM Employee WHERE employee_ID = @Emp2_ID AND LOWER(employment_status) = 'resigned')
     BEGIN PRINT 'Error: Emp2 resigned'; RETURN; END
 
     DECLARE @Dept1 varchar(50), @Dept2 varchar(50);

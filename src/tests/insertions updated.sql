@@ -7,6 +7,9 @@ EXEC dbo.dropAllTables;
 EXEC dbo.dropAllProceduresFunctionsViews
 GO
 
+/*exec delete_dbase
+go*/
+
 CREATE PROCEDURE init_values
 AS
 BEGIN
@@ -1029,4 +1032,5 @@ BEGIN
 ------------------------------------------------------
 
 END
+exec init_values
 GO

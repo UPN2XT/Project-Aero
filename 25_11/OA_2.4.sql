@@ -77,7 +77,7 @@ BEGIN
         WHEN EXISTS (
             SELECT Emp1_ID FROM Employee_Approve_Leave
             INNER JOIN Employee ON employee_ID = Emp1_ID AND dept_name = @Dep_name AND dbo.get_rank(employee_ID) <= @Min_Rank
-            WHERE Leave_ID = @request_id AND [status] = 'approved'
+            WHERE Leave_ID = @request_id AND lower([status]) = 'approved'
         ) THEN 'approved'
         WHEN EXISTS (
             SELECT Emp1_ID FROM Employee_Approve_Leave
@@ -139,7 +139,7 @@ BEGIN
         @employee_ID, A.date, (8 - DATEDIFF(HOUR, A.check_in_time, A.check_out_time)) * @HourlyRate,
         A.attendance_ID, 'missing_hours'
     FROM Attendance A
-    WHERE A.emp_ID = @employee_ID AND A.status = 'attended'
+    WHERE A.emp_ID = @employee_ID AND lower(A.status) = 'attended'
       AND DATEDIFF(HOUR, A.check_in_time, A.check_out_time) < 8
       AND NOT EXISTS (SELECT 1 FROM Deduction d WHERE d.attendance_ID = A.attendance_ID AND d.type = 'missing_hours');
 END
@@ -157,7 +157,7 @@ BEGIN
     SELECT
         @employee_ID, A.date, @DailyRate, A.attendance_ID, 'missing_days'
     FROM Attendance A
-    WHERE A.emp_ID = @employee_ID AND A.status = 'absent'
+    WHERE A.emp_ID = @employee_ID AND lower(A.status) = 'absent'
         AND DATENAME(WEEKDAY, A.date) <> @OfficialDayOff
         AND dbo.Is_On_Leave(@employee_ID, A.date, A.date) = 0
         AND NOT EXISTS (SELECT 1 FROM Deduction d WHERE d.attendance_ID = A.attendance_ID)
@@ -175,7 +175,7 @@ BEGIN
      SELECT 
         @employee_ID, L.start_date, (L.num_days * @DailyRate), 'unpaid', UL.request_ID
      FROM Unpaid_Leave UL INNER JOIN Leave L ON UL.request_ID = L.request_ID
-     WHERE UL.emp_ID = @employee_ID AND L.final_approval_status = 'approved'
+     WHERE UL.emp_ID = @employee_ID AND lower(L.final_approval_status) = 'approved'
        AND NOT EXISTS (SELECT 1 FROM Deduction d WHERE d.unpaid_ID = UL.request_ID);
 END
 GO
@@ -202,7 +202,7 @@ BEGIN
     DECLARE @Emp_dep VARCHAR(50); DECLARE @emp_id INT;
     SELECT TOP 1 @Emp_dep = dept_name, @emp_id = e.employee_ID FROM Unpaid_Leave ul JOIN Employee e ON ul.emp_ID = e.employee_ID WHERE request_id = @Request_id;
     UPDATE Leave SET final_approval_status = 'approved' 
-    WHERE request_id = @request_id AND EXISTS (SELECT 1 FROM Employee_Approve_Leave WHERE Leave_ID = @request_id AND status = 'approved');
+    WHERE request_id = @request_id AND EXISTS (SELECT 1 FROM Employee_Approve_Leave WHERE Leave_ID = @request_id AND lower(status) = 'approved');
 END
 GO
 
@@ -262,18 +262,38 @@ CREATE PROCEDURE HR_approval_an_acc
 AS
 BEGIN
     DECLARE @Type VARCHAR(20);
+    DECLARE @datediff int
+    DECLARE @emp_id int
+
+    select @datediff = num_days from Leave
+    where @request_ID = request_ID
+
     IF EXISTS (SELECT 1 FROM Annual_Leave WHERE request_ID = @request_ID) SET @Type = 'annual';
     ELSE SET @Type = 'accidental';
 
     UPDATE Employee_Approve_Leave
     SET status = CASE 
-        WHEN @Type = 'accidental' AND (SELECT accidental_balance FROM Employee WHERE employee_ID = (SELECT emp_ID FROM Accidental_Leave WHERE request_ID = @request_ID)) > 0 THEN 'approved'
-        WHEN @Type = 'annual' AND (SELECT annual_balance FROM Employee WHERE employee_ID = (SELECT emp_ID FROM Annual_Leave WHERE request_ID = @request_ID)) > 0 THEN 'approved'
+        WHEN lower(@Type) = 'accidental' AND (SELECT accidental_balance FROM Employee WHERE employee_ID = (SELECT emp_ID = @emp_id FROM Accidental_Leave WHERE request_ID = @request_ID)) - 1 > 0 THEN 'approved'
+        WHEN lower(@Type) = 'annual' AND (SELECT annual_balance FROM Employee WHERE employee_ID = (SELECT emp_ID = @emp_id FROM Annual_Leave WHERE request_ID = @request_ID)) - @datediff > 0 THEN 'approved'
         ELSE 'rejected'
     END
     WHERE Emp1_ID = @HR_ID AND Leave_ID = @request_ID;
+    
+    IF lower(@Type) = 'accidental' and (select status from Employee_Approve_Leave where @request_ID = Leave_ID AND @HR_ID = Emp1_ID) = 'approved'
+    BEGIN
+    UPDATE Employee
+    set accidental_balance = accidental_balance-1
+    where employee_ID = @emp_id
+    END
 
-    IF @Type = 'annual'
+     IF lower(@Type) = 'annual' and (select status from Employee_Approve_Leave where @request_ID = Leave_ID AND @HR_ID = Emp1_ID) = 'approved'
+    BEGIN
+    UPDATE Employee
+    set annual_balance = annual_balance - @datediff
+    where employee_ID = @emp_id
+    END
+
+    IF lower(@Type) = 'annual'
         EXEC dbo.auto_update_annual @request_id;
     ELSE
         EXEC dbo.auto_update_accedintal_leave @request_id;
@@ -281,14 +301,31 @@ END
 GO
 
 CREATE PROCEDURE HR_approval_unpaid
-    @request_ID int, @HR_ID int
+    @request_ID int,
+    @HR_ID int
 AS
 BEGIN
-    UPDATE Employee_Approve_Leave
-    SET status = 'approved'
-    WHERE Emp1_ID = @HR_ID AND Leave_ID = @request_ID;
-
-    EXEC dbo.auto_update_Unpaid_leave @request_ID;
+    IF @request_ID IN (SELECT request_id
+    FROM Unpaid_Leave)
+UPDATE Employee_Approve_Leave
+    SET status =
+            CASE WHEN 30 > (
+				SELECT COUNT(*)
+    FROM Unpaid_Leave
+        INNER JOIN Leave ON Unpaid_Leave.request_id = Leave.request_id
+    WHERE Unpaid_Leave.emp_ID IN (
+		SELECT emp_id
+        FROM Unpaid_Leave u
+            INNER JOIN Employee e on u.emp_ID = e.employee_ID
+        WHERE u.request_id = @request_id
+            AND
+            e.type_of_contract = 'full_time'
+				) AND YEAR(GETDATE()) = YEAR(Leave.start_date) and e.annual_balance <>0
+			) THEN 'approved'
+			ELSE 'rejected'
+			END
+		WHERE Emp1_ID = @HR_ID AND Leave_ID=@request_id
+    EXEC dbo.auto_update_Unpaid_leave @Request_id
 END
 GO
 
