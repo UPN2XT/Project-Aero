@@ -89,7 +89,7 @@ BEGIN
         SELECT 1
     FROM LEAVE AS l
         INNER JOIN (
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        SELECT request_id
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            SELECT request_id
             FROM Annual_Leave
             WHERE emp_id = @Employee_ID
         UNION ALL
@@ -180,12 +180,11 @@ BEGIN
     SELECT @my_dept = dept_name
     FROM Employee
     WHERE employee_ID = @employee_ID;
-    e
     SELECT @dep_name_replacement = dept_name
     FROM Employee e
     WHERE e.employee_ID = @replacement_emp
 
-    IF dbo.is_on_leave(@replacement_emp, @compensation_date, @compensation_date) = 1
+    IF dbo.is_on_leave(@replacement_emp, @start_date, @end_date) = 1
     BEGIN
         PRINT 'replacment employee is on leave'
         UPDATE Leave
@@ -231,7 +230,7 @@ BEGIN
     FROM Employee e
         INNER JOIN Employee_Role er ON er.emp_id = e.employee_ID
         INNER JOIN Role r ON r.role_name = er.role_name
-    WHERE r.rank <= 2 OR dept_name = 'HR'
+    WHERE r.rank = 1 OR dept_name = 'HR'
     ELSE
     INSERT INTO Employee_Approve_Leave
         (Emp1_ID, Leave_ID)
@@ -247,7 +246,7 @@ GO
 CREATE FUNCTION Status_leaves(@employee_ID INT)
 RETURNS TABLE
 AS
-RETURN (                                                                     SELECT al.request_ID,
+RETURN (                                                                                         SELECT al.request_ID,
         l.date_of_request,
         l.final_approval_status AS status
     FROM Annual_Leave aL
@@ -307,7 +306,6 @@ END
 GO
 
 CREATE PROCEDURE Submit_accidental
-    --TODO://TEST
     @employee_ID INT,
     @start_date DATE,
     @end_date DATE
@@ -315,33 +313,40 @@ AS
 BEGIN
     IF @start_date <> @end_date
     BEGIN
-        PRINT 'Error: Accidental leaves can only be for 1 day (Start Date must equal End Date).';
+        PRINT 'Error: Accidental leaves can only be for 1 day.';
         RETURN;
     END
-    INSERT INTO Leave
-        (date_of_request, start_date, end_date)
-    VALUES
-        (GETDATE(), @start_date, @end_date);
-    DECLARE @request_ID INT;
-    -- 3. Get the ID of the row we just created
-    SET @request_ID = SCOPE_IDENTITY();
 
+    INSERT INTO Leave
+        (date_of_request, start_date, end_date, final_approval_status)
+    VALUES
+        (GETDATE(), @start_date, @end_date, 'pending');
+    DECLARE @ReqID INT = SCOPE_IDENTITY();
     INSERT INTO Accidental_Leave
         (request_id, emp_id)
     VALUES
-        (@request_ID, @employee_id);
+        (@ReqID, @employee_ID);
 
-    INSERT INTO Employee_Approve_Leave
-        (Emp1_ID, Leave_ID)
-    SELECT employee_id, @request_ID
+    DECLARE @Dept VARCHAR(50);
+    SELECT @Dept = dept_name
     FROM Employee
-    WHERE Employee.dept_name='HR'
+    WHERE employee_ID = @employee_ID;
+    IF (@Dept = 'HR')
+    INSERT INTO Employee_Approve_Leave
+        (Emp1_ID, Leave_ID, status)
+    SELECT e.employee_ID, @ReqID, 'pending'
+    FROM Employee e INNER JOIN Employee_Role er ON e.employee_ID = er.emp_ID
+    WHERE er.role_name = 'HR Manager';
+    ELSE
+    INSERT INTO Employee_Approve_Leave
+        (Emp1_ID, Leave_ID, status)
+    SELECT e.employee_ID, @ReqID, 'pending'
+    FROM Employee e INNER JOIN Employee_Role er ON e.employee_ID = er.emp_ID
+    WHERE er.role_name = 'HR_Representative_' + @Dept;
 END
 GO
 
-
 CREATE PROCEDURE Submit_medical
-    -- TODO://test
     @employee_ID INT,
     @start_date DATE,
     @end_date DATE,
@@ -358,7 +363,6 @@ BEGIN
         SELECT @contract_type = type_of_contract
         FROM Employee
         WHERE employee_ID = @employee_ID;
-
         IF @contract_type = 'part_time'
         BEGIN
             PRINT 'Error: Part-time employees are not eligible for maternity leave.';
@@ -366,32 +370,41 @@ BEGIN
         END
     END
 
-    DECLARE @request_ID INT;
-
     INSERT INTO Leave
-        (date_of_request, start_date, end_date)
+        (date_of_request, start_date, end_date, final_approval_status)
     VALUES
-        (GETDATE(), @start_date, @end_date);
-
-    SET @request_ID = SCOPE_IDENTITY();
-
+        (GETDATE(), @start_date, @end_date, 'pending');
+    DECLARE @ReqID INT = SCOPE_IDENTITY();
     INSERT INTO Medical_Leave
         (request_id, emp_id, type, insurance_status, disability_details)
     VALUES
-        (@request_ID, @employee_id, @type, @insurance_status, @disability_details);
+        (@ReqID, @employee_ID, @type, @insurance_status, @disability_details);
 
+    IF @file_name IS NOT NULL
+    BEGIN
+        INSERT INTO Document
+            (medical_ID, emp_id, description, file_name, status, type, creation_date)
+        VALUES
+            (@ReqID, @employee_ID, @document_description, @file_name, 'valid', 'Medical', GETDATE());
+    END
 
-    INSERT INTO Document
-        (emp_id, description, file_name, status, [type], medical_ID)
-    VALUES
-        (@request_ID, @employee_ID, @document_description, @file_name, 'valid', 'Medical', @request_ID);
-
-    INSERT INTO Employee_Approve_Leave
-        (Emp1_ID, Leave_ID)
-    SELECT employee_id, @request_ID
+    DECLARE @Dept VARCHAR(50);
+    SELECT @Dept = dept_name
     FROM Employee
-    WHERE Employee.dept_name IN ('HR', 'Medical')
+    WHERE employee_ID = @employee_ID;
 
+    IF (@Dept = 'HR')
+    INSERT INTO Employee_Approve_Leave
+        (Emp1_ID, Leave_ID, status)
+    SELECT e.employee_ID, @ReqID, 'pending'
+    FROM Employee e INNER JOIN Employee_Role er ON e.employee_ID = er.emp_ID
+    WHERE er.role_name = 'HR Manager';
+    ELSE
+    INSERT INTO Employee_Approve_Leave
+        (Emp1_ID, Leave_ID, status)
+    SELECT e.employee_ID, @ReqID, 'pending'
+    FROM Employee e INNER JOIN Employee_Role er ON e.employee_ID = er.emp_ID
+    WHERE er.role_name = 'HR_Representative_' + @Dept;
 END
 GO
 
@@ -453,12 +466,12 @@ BEGIN
     VALUES
         (@request_ID, @employee_ID);
 
-    IF @file_name IS NOT NULL OR @document_description IS NOT NULL
+    IF @file_name IS NOT NULL
     BEGIN
         INSERT INTO Document
-            (unpaid_ID, emp_id, description, file_name, status, [type])
+            (unpaid_ID, emp_id, description, file_name, status, type, creation_date)
         VALUES
-            (@request_ID, @employee_ID, @document_description, @file_name, 'valid', 'Memo');
+            (@request_ID, @employee_ID, @document_description, @file_name, 'valid', 'Memo', GETDATE());
     END
 
     IF @dept_name = 'HR'
@@ -469,7 +482,7 @@ BEGIN
         FROM Employee e
             INNER JOIN Employee_Role er ON e.employee_ID = er.emp_id
             INNER JOIN Role r ON er.role_name = r.role_name
-        WHERE r.[rank] <= 2
+        WHERE r.[rank] = 1
             OR (r.rank = 3 AND e.dept_name = 'HR');
     END
 
@@ -486,7 +499,7 @@ BEGIN
         FROM Employee e
             INNER JOIN Employee_Role er ON er.emp_id = e.employee_ID
             INNER JOIN Role r ON r.role_name = er.role_name
-        WHERE r.rank <= 2 OR dept_name = 'HR'
+        WHERE r.rank = 1 OR r.role_name = 'HR_Representative_' + e.dept_name
     END
 
     ELSE
@@ -498,7 +511,7 @@ BEGIN
             INNER JOIN Employee_Role er ON e.employee_ID = er.emp_id
             INNER JOIN Role r ON er.role_name = r.role_name
         WHERE (r.role_name = 'Dean' AND e.dept_name = @dept_name)
-            OR e.dept_name = 'HR' OR r.[rank] <= 2;
+            OR r.role_name = 'HR_Representative_' + e.dept_name OR r.[rank] = 1;
     END
 END
 GO
