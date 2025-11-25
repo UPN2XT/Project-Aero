@@ -1,269 +1,126 @@
+USE University_HR_ManagementSystem_Team_97;
+GO
 
---CREATE ROLE admin --assumed we will need something like this for admin.employee and hr
---GO
-
--- bv1 checked: unit test to be created 
 CREATE PROCEDURE Update_Status_Doc
 AS
-UPDATE Document
-SET status = 'Expired'
-where GETDATE() > expiry_date;
+UPDATE Document SET status = 'expired' WHERE GETDATE() > expiry_date;
 GO
 
--- changed it to delete as it says remove
--- bv1 checked: unit test to be created 
-CREATE PROCEDURE  Remove_Deductions
+CREATE PROCEDURE Remove_Deductions
 AS
 DELETE d FROM Deduction d
-    INNER JOIN Employee e on d.emp_ID = e.employee_ID
-    where e.employment_status ='Resigned'
+INNER JOIN Employee e on d.emp_ID = e.employee_ID
+WHERE e.employment_status ='resigned';
 GO
 
-/*
-    Orginal before as2
-CREATE PROCEDURE  Remove_Deductions/*not sure if we need to remove the record or just set the amount to 0*/
-AS
-UPDATE Deduction
-SET amount = 0
-FROM Deduction d
-    INNER JOIN Employee e on d.emp_ID = e.employee_ID
-where e.employment_status ='Resigned'
-GO
-*/
-
---bv 1: simplified query unit tests to be created
 CREATE PROCEDURE Update_Employment_Status
     @Employee_ID int
 AS
-UPDATE Employee
-SET employment_status = CASE
-            WHEN employment_status In ('Notice Period', 'Resigned') THEN employment_status
-            WHEN  dbo.Is_On_Leave(@Employee_ID) = 1 THEN 'Onleave' 
-            ELSE 'Active'
+BEGIN
+    UPDATE Employee
+    SET employment_status = CASE
+            WHEN employment_status In ('notice_period', 'resigned') THEN employment_status
+            WHEN dbo.Is_On_Leave(@Employee_ID, GETDATE(), GETDATE()) = 1 THEN 'onleave' 
+            ELSE 'active'
         END 
-WHERE employee_ID = @Employee_ID;
+    WHERE employee_ID = @Employee_ID;
+END
 GO
 
-
--- as2: old version
-/*CREATE PROCEDURE Update_Employment_Status
-    @Employee_ID int
-AS
-WITH
-    ActiveLeaves
-    AS
-    (
-                                            SELECT request_id, emp_id
-            FROM Annual_Leave
-            WHERE emp_id = @Employee_ID
-        UNION ALL
-            SELECT request_id, emp_id
-            FROM Accidental_Leave
-            WHERE emp_id = @Employee_ID
-        UNION ALL
-            SELECT request_id, emp_id
-            FROM Medical_Leave
-            WHERE emp_id = @Employee_ID
-        UNION ALL
-            SELECT request_id, emp_id
-            FROM Unpaid_Leave
-            WHERE emp_id = @Employee_ID
-        UNION ALL
-            SELECT request_id, emp_id
-            FROM Compensation_Leave
-            WHERE emp_id = @Employee_ID
-    ),
-    EmployeeStatusCheck
-    AS
-    (
-        SELECT
-            e.Emp_ID,
-            e.status AS CurrentStatus,
-            CASE
-            WHEN e.status In ('Notice Period', 'Resigned') THEN e.status
-            WHEN EXISTS (
-                SELECT 1
-            FROM Leave l
-                INNER JOIN ActiveLeaves al ON al.request_id = l.request_id
-            WHERE
-                    l.final_approval_status = 'Approved' AND
-                GETDATE() BETWEEN l.start_date AND l.end_date
-            ) THEN 'Onleave' 
-            ELSE e.status 
-        END AS NewStatus
-        FROM
-            Employee e
-        WHERE
-        e.Emp_ID = @Employee_ID
-    )
-UPDATE e
-SET status = sc.NewStatus
-FROM Employee e
-    INNER JOIN EmployeeStatusCheck sc ON e.Emp_ID = sc.Emp_ID
-WHERE e.Emp_ID = @Employee_ID;
-GO*/
-
--- -- bv1 checked: unit test to be created 
 CREATE PROCEDURE Create_Holiday
 AS
-CREATE TABLE Holiday
-(
-    Holiday_ID INT PRIMARY KEY IDENTITY,
-    name VARCHAR(50),
-    from_date date,
-    to_date date
-);
+BEGIN
+    IF OBJECT_ID('Holiday', 'U') IS NULL
+    BEGIN
+        CREATE TABLE Holiday (
+            Holiday_ID INT PRIMARY KEY IDENTITY,
+            name VARCHAR(50),
+            from_date date,
+            to_date date
+        );
+    END
+END
 GO
 
--- bv1 checked: unit test to be created 
-CREATE PROCEDURE  Add_Holiday
+CREATE PROCEDURE Add_Holiday
     @holiday_name VARCHAR(50),
     @from_date date,
     @to_date date
 AS
-INSERT INTO Holiday
-    (name,from_date,to_date)
-VALUES(@holiday_name, @from_date, @to_date);/*to date was just missing @ before it here*/
+INSERT INTO Holiday (name,from_date,to_date) VALUES(@holiday_name, @from_date, @to_date);
 GO
 
-/*should be working but we will still need to recheck it
-11-14 still has the error of invalid column name for employment_status and employee_ID*/
--- bv1 checked: unit test to be created 
 CREATE PROCEDURE Intitiate_Attendance
 AS
 BEGIN
     DECLARE @CurrentDate DATE = CAST(GETDATE() AS DATE);
-    INSERT INTO Attendance
-        ([date], [status], emp_ID)
-    -- 11/14 shouldnt date be changed to @CurrentDate?? and status to be written as [status]?
-    SELECT
-        @CurrentDate,
-        'Absent',
-        E.employee_ID
-    FROM
-        Employee E
-    WHERE
-        E.employment_status = 'Active'
-        AND E.employee_ID NOT IN (
-        SELECT emp_ID
-        FROM Attendance
-        WHERE [date] = @CurrentDate
-    );
+    INSERT INTO Attendance ([date], [status], emp_ID)
+    SELECT @CurrentDate, 'absent', E.employee_ID
+    FROM Employee E
+    WHERE E.employment_status = 'active'
+    AND E.employee_ID NOT IN (SELECT emp_ID FROM Attendance WHERE [date] = @CurrentDate);
 END 
 GO
 
-/*
-    could be done with if else but not sure
-    as2: from what i know attendence is tied to the exsistance of a checkin or checkout 
-    so i changed it to this
-    also older implementaion didnt update probably it would have updated more than one record and not update ones that should be updated aswell    
-*/
--- bv1 checked: unit test to be created 
 CREATE PROCEDURE Update_Attendance
     @Employee_id int,
     @check_in time,
     @check_out time
 AS
 UPDATE Attendance
-SET status = 'Attended',
-check_in_time = @check_in,
-check_out_time = @check_out
-FROM Attendance
-    INNER JOIN Employee on Attendance.emp_ID = Employee.employee_ID
-WHERE @Employee_id = emp_ID
-    AND Attendance.date = CAST(GETDATE() AS DATE) -- attencence of the given day
-    /* old imp: AND Attendance.total_hours >=8 AND Employee.type_of_contract = 'Full time')
-    OR (total_hours<8 AND type_of_contract<>'Part time')*/
+SET status = 'attended', check_in_time = @check_in, check_out_time = @check_out
+WHERE emp_ID = @Employee_id AND date = CAST(GETDATE() AS DATE);
 GO
 
--- bv1 checked: unit test to be created 
-CREATE PROCEDURE Remove_Holiday/*asked gpt here so not 100% if there is a better way*/
+CREATE PROCEDURE Remove_Holiday
 AS
-DELETE FROM Attendance
-where EXISTS(
-SELECT *
-FROM Holiday
-where Attendance.[date] between h.from_date and h.to_date)
+BEGIN
+    DECLARE @AttendanceToRemove TABLE (ID INT);
+    
+    INSERT INTO @AttendanceToRemove (ID)
+    SELECT A.attendance_ID
+    FROM Attendance A
+    INNER JOIN Holiday h ON A.date BETWEEN h.from_date AND h.to_date;
+
+    DELETE FROM Deduction
+    WHERE attendance_ID IN (SELECT ID FROM @AttendanceToRemove);
+
+    DELETE FROM Attendance
+    WHERE attendance_ID IN (SELECT ID FROM @AttendanceToRemove);
+END
 GO
 
-/*
-    based on the previous one so double check
-    as2: orginal would have deleted all attendance this should fix that
-*/
--- bv1 checked: unit test to be created 
 CREATE PROCEDURE Remove_DayOff
     @Employee_id int
 AS
 DELETE FROM Attendance 
-where DATENAME(WEEKDAY, Attendance.date) IN (
-SELECT official_day_off
-FROM Employee
-where @Employee_id = Employee.employee_ID)
+WHERE emp_ID = @Employee_id 
+AND DATENAME(WEEKDAY, Attendance.date) IN (
+    SELECT official_day_off FROM Employee WHERE @Employee_id = Employee.employee_ID
+);
 GO
 
--- bv1 checked: unit test to be created 
-CREATE PROCEDURE  Remove_Approved_Leaves
+CREATE PROCEDURE Remove_Approved_Leaves
     @Employee_id int
 AS
-WITH
-    ApprovedLeave
-    AS
-    (
-        SELECT request_id, l.start_date, l.end_date
-        FROM LEAVE l
-            INNER JOIN
-            (                                                       
-                                                                                                                    SELECT request_id, emp_ID
-                FROM Annual_Leave
-                WHERE emp_id = @Employee_ID
-            UNION ALL
-                SELECT request_id, emp_id
-                FROM Accidental_Leave
-                WHERE emp_id = @Employee_ID
-            UNION ALL
-                SELECT request_id, emp_id
-                FROM Medical_Leave
-                WHERE emp_id = @Employee_ID
-            UNION ALL
-                SELECT request_id, emp_id
-                FROM Unpaid_Leave
-                WHERE emp_id = @Employee_ID
-            UNION ALL
-                SELECT request_id, emp_id
-                FROM Compensation_Leave
-                WHERE emp_id = @Employee_ID
-            ) AS subleaves
-            ON l.request_id=subleaves.request_id
-        WHERE [status] ='Approved'
-        -- bv1: need to check if pending also count as an approved leave in this case
-    )
-    DELETE FROM Attendance
-    WHERE emp_ID = @Employee_id
-    AND
-    EXISTS (SELECT *
-    FROM Approvedleave
-    WHERE Attendance.[date] BETWEEN al.start_date AND al.end_date)
-
-
+DELETE FROM Attendance
+WHERE emp_ID = @Employee_id
+AND EXISTS (
+    SELECT 1
+    FROM LEAVE l
+    INNER JOIN (                                                       
+        SELECT request_ID, emp_ID FROM Annual_Leave
+        UNION ALL SELECT request_ID, emp_ID FROM Accidental_Leave
+        UNION ALL SELECT request_ID, emp_ID FROM Medical_Leave
+        UNION ALL SELECT request_ID, emp_ID FROM Unpaid_Leave
+        UNION ALL SELECT request_ID, emp_ID FROM Compensation_Leave
+    ) AS subleaves ON l.request_ID = subleaves.request_ID
+    WHERE subleaves.emp_ID = @Employee_id 
+    AND l.final_approval_status = 'approved'
+    AND Attendance.date BETWEEN l.start_date AND l.end_date
+);
 GO
 
--- end of as2 check by omar ahmed
--- bv1 checked: unit test to be created need to check if will need to do more than just insert to table
-/*
-CREATE PROCEDURE Replace_employee--todo
-    @Emp1_ID int,
-    @Emp2_ID int,
-    @from_date date,
-    @to_date date
-AS
-INSERT INTO Employee_Replace_Employee
-    (Emp1_ID, Emp2_ID, from_date, to_date)
-VALUES
-    (@Emp1_ID, @Emp2_ID, @from_date, @to_date);
-GO
-*/
-
--- New 21/11
 CREATE PROCEDURE Replace_employee
     @Emp1_ID int,
     @Emp2_ID int,
@@ -271,66 +128,25 @@ CREATE PROCEDURE Replace_employee
     @to_date date
 AS
 BEGIN
-    IF @from_date > @to_date
-    BEGIN
-        PRINT 'Error: The start date cannot be after the end date.';
-        RETURN;
-    END
+    IF @from_date > @to_date BEGIN PRINT 'Error: Start > End'; RETURN; END
+    IF @Emp1_ID = @Emp2_ID BEGIN PRINT 'Error: Same Emp'; RETURN; END
 
-    IF @Emp1_ID = @Emp2_ID
-    BEGIN
-        PRINT 'Error: An employee cannot replace themselves.';
-        RETURN;
-    END
+    IF EXISTS (SELECT 1 FROM Employee WHERE employee_ID = @Emp2_ID AND employment_status = 'resigned')
+    BEGIN PRINT 'Error: Emp2 resigned'; RETURN; END
 
-    IF EXISTS (
-        SELECT 1 
-        FROM Employee 
-        WHERE employee_ID = @Emp2_ID AND employment_status = 'resigned'
-    )
-    BEGIN
-        PRINT 'Error: The replacement employee has resigned and cannot be assigned tasks.';
-        RETURN;
-    END
-
-    DECLARE @Dept1 varchar(50);
-    DECLARE @Dept2 varchar(50);
-    
+    DECLARE @Dept1 varchar(50), @Dept2 varchar(50);
     SELECT @Dept1 = dept_name FROM Employee WHERE employee_ID = @Emp1_ID;
     SELECT @Dept2 = dept_name FROM Employee WHERE employee_ID = @Emp2_ID;
-    
 
-    IF @Dept1 <> @Dept2
-    BEGIN
-        PRINT 'Error: Employees must belong to the same department.';
-        RETURN;
-    END
+    IF @Dept1 <> @Dept2 BEGIN PRINT 'Error: Different Depts'; RETURN; END
 
     IF dbo.Is_On_Leave(@Emp1_ID, @from_date, @to_date) = 0
-    BEGIN
-        PRINT 'Error: Employee 1 is not on approved/pending leave during this period, so they cannot be replaced.';
-        RETURN;
-    END
+    BEGIN PRINT 'Error: Emp1 is not on leave'; RETURN; END
 
     IF dbo.Is_On_Leave(@Emp2_ID, @from_date, @to_date) = 1
-    BEGIN
-        PRINT 'Error: The replacement employee (Emp2) is on leave during this period.';
-        RETURN;
-    END;
+    BEGIN PRINT 'Error: Emp2 is on leave'; RETURN; END;
 
-    IF EXISTS (
-        SELECT 1 
-        FROM Employee_Replace_Employee 
-        WHERE employee_id = @Emp1_ID 
-          AND (from_date <= @to_date AND to_date >= @from_date)
-    )
-    BEGIN
-        PRINT 'Error: Employee 1 already has a replacement registered for this period.';
-        RETURN;
-    END
-
-    INSERT INTO Employee_Replace_Employee (employee_id, replacement_id, from_date, to_date)
+    INSERT INTO Employee_Replace_Employee (Emp1_ID, Emp2_ID, from_date, to_date)
     VALUES (@Emp1_ID, @Emp2_ID, @from_date, @to_date);
-
 END;
 GO

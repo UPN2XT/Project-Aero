@@ -1,14 +1,16 @@
 USE University_HR_ManagementSystem_Team_97;
 GO
 
-CREATE FUNCTION HRLoginValidation(@Employee_ID int, @Password varchar(50))--this has error invlaid column name for employee_ID and password
+CREATE FUNCTION HRLoginValidation(@Employee_ID int, @Password varchar(50))
 RETURNS bit
 BEGIN
     DECLARE @ISVALID BIT = 0;
     IF EXISTS(SELECT *
     FROM Employee e
-    where @Employee_ID= e.employee_ID AND @Password = e.[password])
- SET @ISVALID = 1;
+    where @Employee_ID= e.employee_ID AND @Password = e.[password] and e.dept_name = 'HR')
+    BEGIN
+        SET @ISVALID = 1;
+    END
     return @ISVALID
 END
 GO
@@ -23,18 +25,18 @@ CREATE PROCEDURE HR_approval_an_acc--11/14 dont we need to check if the employee
 AS
 BEGIN
 
-    if EXISTS(
+    /*if EXISTS(
     SELECT eal.[status]
     from Employee_Approve_Leave eal
     WHERE @request_ID = eal.Leave_ID AND EXISTS(SELECT eal2.[status]
         from Employee_Approve_Leave eal2
-        WHERE eal2.[status]='Rejected' and @request_ID = eal.Leave_ID))
+        WHERE LOWER(eal2.[status])='rejected' and @request_ID = eal.Leave_ID))
     BEGIN
         print 'Error:employee within the hierarchy rejected the leave'
         RETURN;
-    END;
+    END;*/
 
-    IF @request_ID IN (                                                                                                                                                                SELECT request_id
+    IF @request_ID IN (                                                                                                                                                                        SELECT request_id
         FROM Accidental_Leave
     UNION
         SELECT request_id
@@ -48,9 +50,9 @@ UPDATE Employee_Approve_Leave
     FROM Employee
         INNER JOIN Accidental_Leave ON Accidental_Leave.emp_ID = Employee.employee_id
             AND @request_ID = Accidental_Leave.request_id
-    WHERE Employee.accidental_balance > 0
-			) THEN 'Approved'
-			ELSE 'Rejected'
+    WHERE Employee.accidental_balance > 0 and Employee.type_of_contract<>'part_time'
+			) THEN 'approved'
+			ELSE 'rejected'
 		END
 		WHEN EXISTS (SELECT request_id
     FROM Annual_Leave) 
@@ -60,19 +62,19 @@ UPDATE Employee_Approve_Leave
     FROM Employee
         INNER JOIN Annual_Leave ON Annual_Leave.emp_ID = Employee.employee_id
             AND @request_ID = Annual_Leave.request_id
-    WHERE Employee.annual_balance > 0
-			) THEN 'Approved'
-			ELSE 'Rejected'
+    WHERE Employee.annual_balance > 0 and Employee.type_of_contract<>'part_time'
+			) THEN 'approved'
+			ELSE 'rejected'
 		END
-		ELSE 'Rejected'
+		ELSE 'rejected'
 		END
     WHERE Emp1_ID = @HR_ID AND Leave_ID=@request_id
     IF EXISTS (SELECT 1
     FROM Annual_Leave
     WHERE request_id = @request_id)
-    EXEC auto_update_annual @request_id;
+    EXEC dbo.auto_update_annual @request_id;
    ELSE
-    EXEC auto_update_accedintal_leave @request_id
+    EXEC dbo.auto_update_accedintal_leave @request_id
 END
 GO
 
@@ -82,7 +84,7 @@ CREATE PROCEDURE HR_approval_unpaid
 AS
 BEGIN
 
-    if EXISTS(
+    /* if EXISTS(
     SELECT eal.[status]
     from Employee_Approve_Leave eal
     WHERE @request_ID = eal.Leave_ID AND EXISTS(SELECT eal2.[status]
@@ -91,7 +93,7 @@ BEGIN
     BEGIN
         print 'Error:employee within the hierarchy rejected the leave'
         RETURN;
-    END;
+    END;*/
 
     IF @request_ID IN (SELECT request_id
     FROM Unpaid_Leave)
@@ -104,16 +106,16 @@ UPDATE Employee_Approve_Leave
     WHERE Unpaid_Leave.emp_ID IN (
 		SELECT emp_id
         FROM Unpaid_Leave u
-            INNER JOIN Employee e on u.emp_ID = e.Employee_ID
+            INNER JOIN Employee e on u.emp_ID = e.employee_ID
         WHERE u.request_id = @request_id
             AND
-            e.type_of_contract = 'Full time'--11/14 added this part since part-time employees are not eligible so assuming they can still request one, it should be rejected
+            e.type_of_contract = 'full_time'--11/14 added this part since part-time employees are not eligible so assuming they can still request one, it should be rejected
 				) AND YEAR(GETDATE()) = YEAR(Leave.start_date) -- Need to check if max unpaid leave is in the same year or not
-			) THEN 'Approved'
-			ELSE 'Rejected'
+			) THEN 'approved'
+			ELSE 'rejected'
 			END
 		WHERE Emp1_ID = @HR_ID AND Leave_ID=@request_id
-    EXEC auto_update_Unpaid_leave @Request_id
+    EXEC dbo.auto_update_Unpaid_leave @Request_id
 END
 GO
 
@@ -129,8 +131,11 @@ BEGIN
     from Employee_Approve_Leave eal
     WHERE @request_ID = eal.Leave_ID AND EXISTS(SELECT eal2.[status]
         from Employee_Approve_Leave eal2
-        WHERE eal2.[status]='Rejected' and @request_ID = eal.Leave_ID))
+        WHERE eal2.[status]='rejected' and @request_ID = eal.Leave_ID))
     BEGIN
+        update Leave
+    set final_approval_status = 'rejected'
+    where @request_ID = request_ID
         print 'Error:employee within the hierarchy rejected the leave'
         RETURN;
     END;
@@ -154,8 +159,8 @@ UPDATE Employee_Approve_Leave
 					) AND MONTH(Attendance.date) = MONTH(cl.date_of_original_workday)
             AND YEAR(Attendance.date) = YEAR(cl.date_of_original_workday)
 				)
-			) THEN 'Approved'
-			ELSE 'Rejected'
+			) THEN 'approved'
+			ELSE 'rejected'
 			END
 		WHERE Emp1_ID = @HR_ID AND Leave_ID=@request_id
 END
@@ -411,7 +416,7 @@ AS
 BEGIN
     DECLARE @Bouns_amount_val DECIMAL(10,2);
     DECLARE @Deduction_amount_val DECIMAL(10,2);
-    SET @Bouns_amount_val = Bonus_amount(@Employee_ID);
+    SET @Bouns_amount_val = dbo.Bonus_amount(@Employee_ID);
 
     SELECT @Deduction_amount_val = SUM(amount)
     FROM Deduction
@@ -421,14 +426,14 @@ BEGIN
         (payment_date, final_salary_amount, from_date, to_date, bonus_amount, deductions_amount)
     VALUES
         (
-            GETDATE(), (Get_Salary(@Employee_id) + @Bouns_amount_val - @Deduction_amount_val),
+            GETDATE(), (dbo.Get_Salary(@Employee_id) + @Bouns_amount_val - @Deduction_amount_val),
             @From,
             @To,
             @Bouns_amount_val,
             @Deduction_amount_val
 	)
     UPDATE deduction
-    SET [status] = 'Finalized'
+    SET [status] = 'finalized'
     WHERE date BETWEEN @From AND @To
 END
 GO
@@ -442,20 +447,20 @@ BEGIN
     FROM Employee_Approve_Leave
         INNER JOIN Employee ON employee_id = emp_id
             AND dept_name = @Dep_name
-            AND get_rank(employee_id) <= @Min_Rank
+            AND dbo.get_rank(employee_id) <= @Min_Rank
     WHERE Leave_ID = @request_id
-        AND [status] = 'Approved'
-) THEN 'Approved'
+        AND [status] = 'approved'
+) THEN 'approved'
 WHEN EXISTS (
     SELECT emp_id
     FROM Employee_Approve_Leave
         INNER JOIN Employee ON employee_id = emp_id
             AND dept_name = @Dep_name
     WHERE Leave_ID = @request_id
-        AND [status] = 'Rejected'
-        AND get_rank(employee_id) <= @Min_Rank
-) THEN 'Rejected'
-ELSE 'Pending'
+        AND LOWER([status]) = 'rejected'
+        AND dbo.get_rank(employee_id) <= @Min_Rank
+) THEN 'rejected'
+ELSE 'pending'
 END
 END
 GO
@@ -464,15 +469,16 @@ CREATE FUNCTION get_approval_status_pres(@Request_ID INT)
 RETURNS VARCHAR(50)
 AS
 BEGIN
+    DECLARE @Dep_name varchar(50)
     RETURN CASE WHEN EXISTS (
     SELECT emp_id
     FROM Employee_Approve_Leave
         INNER JOIN Employee ON employee_id = emp_id
             AND dept_name IS NULL
-            AND get_rank(employee_id) = 1
+            AND dbo.get_rank(employee_id) = 1
     WHERE Leave_ID = @request_id
-        AND [status] = 'Approved'
-) THEN 'Approved'
+        AND LOWER([status]) = 'approved'
+) THEN 'approved'
 WHEN EXISTS (
     SELECT emp_id
     FROM Employee_Approve_Leave
@@ -480,9 +486,9 @@ WHEN EXISTS (
             AND dept_name = @Dep_name
     WHERE Leave_ID = @request_id
         AND dept_name IS NULL
-        AND get_rank(employee_id) = 1
-) THEN 'Rejected'
-ELSE 'Pending'
+        AND dbo.get_rank(employee_id) = 1
+) THEN 'rejected'
+ELSE 'pending'
 END
 END
 GO
@@ -492,7 +498,7 @@ CREATE PROCEDURE auto_update_accedintal_leave
 AS
 BEGIN
     UPDATE Leave
-SET [status] =  get_approval_status(@request_id, 'HR', 4)
+SET [status] =  dbo.get_approval_status(@request_id, 'HR', 4)
 WHERE request_id = @request_id
 END
 GO
@@ -502,7 +508,7 @@ CREATE PROCEDURE auto_update_Medical_leave
 AS
 BEGIN
     UPDATE Leave
-SET [status] = get_approval_status(@request_id, 'HR', 4)
+SET [status] = dbo.get_approval_status(@request_id, 'HR', 4)
 WHERE request_id = @request_id
 END
 GO
@@ -519,15 +525,15 @@ BEGIN
     FROM Unpaid_Leave
     WHERE request_id = @Request_id
 
-    DECLARE @Rank INT = get_rank(@emp_id);
+    DECLARE @Rank INT = dbo.get_rank(@emp_id);
     DECLARE @Status VARCHAR(50);
     IF ((@Rank = 4 OR @Rank = 3) AND @Emp_dep != 'HR') 
     BEGIN
-        Declare @pre_approval_status VARCHAR(50) = get_approval_status_pres(@request_id)
-        DECLARE @hr_approval VARCHAR(50) = get_approval_status(@request_id, 'HR', 4)
-        SET @Status = CASE WHEN @pre_approval_status = 'Approved' AND @hr_approval = 'Approved' THEN 'Approved'
-        WHEN @pre_approval_status = 'Rejected' OR @hr_approval = 'Rejected' THEN 'Rejected'
-        ELSE 'Pending'
+        Declare @pre_approval_status VARCHAR(50) = dbo.get_approval_status_pres(@request_id)
+        DECLARE @hr_approval VARCHAR(50) = dbo.get_approval_status(@request_id, 'HR', 4)
+        SET @Status = CASE WHEN @pre_approval_status = 'approved' AND @hr_approval = 'approved' THEN 'approved'
+        WHEN @pre_approval_status = 'rejected' OR @hr_approval = 'rejected' THEN 'rejected'
+        ELSE 'pending'
         END
     END
 
@@ -543,28 +549,28 @@ BEGIN
 
     ELSE
     BEGIN
-        Declare @pre_approval_status VARCHAR(50) = get_approval_status_pres(@request_id)
-        DECLARE @hr_approval VARCHAR(50) = get_approval_status(@request_id, 'HR', 4)
+        Declare @pre_approval_status VARCHAR(50) = dbo.get_approval_status_pres(@request_id)
+        DECLARE @hr_approval VARCHAR(50) = dbo.get_approval_status(@request_id, 'HR', 4)
         DECLARE @MIN_AB INT = CASE WHEN EXISTS (
             SELECT employee_id
         FROM Employee
             INNER JOIN Employee_Role er ON er.emp_id = employee_id
         WHERE er.role_name = 'Dean'
-            AND Is_On_Leave(employee_id, GETDATE(), GETDATE()) = 0
+            AND dbo.Is_On_Leave(employee_id, GETDATE(), GETDATE()) = 0
             AND dept_name = @Emp_dep
         ) THEN 3 ELSE 4 END
         DECLARE @dean_dv_approval VARCHAR(50) = dbo.get_approval_status(@request_id, @Emp_dep, @MIN_AB)
-        SET @Status = CASE WHEN @pre_approval_status = 'Approved' AND @hr_approval = 'Approved' AND @dean_dv_approval = 'Approved'
-        THEN 'Approved' WHEN 'Rejected' IN (@pre_approval_status, @hr_approval, @dean_dv_approval) THEN 'Rejected'
-        ELSE 'Pending' END
+        SET @Status = CASE WHEN @pre_approval_status = 'approved' AND @hr_approval = 'approved' AND @dean_dv_approval = 'approved'
+        THEN 'approved' WHEN 'rejected' IN (@pre_approval_status, @hr_approval, @dean_dv_approval) THEN 'rejected'
+        ELSE 'pending' END
     END
     UPDATE Leave
-SET [status] = get_approval_status(@request_id, 'HR', 4)
+SET [status] = dbo.get_approval_status(@request_id, 'HR', 4)
 WHERE request_id = @request_id
 END
 GO
 
-CREATE PROCEDURE auto_update_annual--TO DO 
+/*CREATE PROCEDURE auto_update_annual--TO DO 
     @request_ID INT
 AS
 BEGIN
@@ -677,7 +683,7 @@ BEGIN
     END;
 
 END
-GO
+GO*/
 
 -- THE FOLLOWING IS AI VERSION OF THE CODE IMPLEMENTED ABOVE
 -- I SENT IT MY OWN VERSION AND ASKED IT TO CHECK FOR MISTAKES
@@ -766,13 +772,13 @@ BEGIN
         WHERE Leave_ID = @request_ID AND Emp1_ID = @Approver_ID;
 
         -- Final Update
-        IF @HR_Representative_Status = 'Approved' AND @UpperBoard_Status = 'Approved'
+        IF LOWER(@HR_Representative_Status) = 'approved' AND LOWER(@UpperBoard_Status) = 'approved'
         BEGIN
-            UPDATE [Leave] SET status = 'Approved' WHERE request_ID = @request_ID;
+            UPDATE [Leave] SET final_approval_status = 'rpproved' WHERE request_ID = @request_ID;
         END
-        ELSE IF @HR_Representative_Status = 'Rejected' OR @UpperBoard_Status = 'Rejected'
+        ELSE IF LOWER(@HR_Representative_Status) = 'rejected' OR LOWER(@UpperBoard_Status) = 'rejected'
         BEGIN
-            UPDATE [Leave] SET status = 'Rejected' WHERE request_ID = @request_ID;
+            UPDATE [Leave] SET final_approval_status = 'rejected' WHERE request_ID = @request_ID;
         END
     END
 
@@ -794,13 +800,13 @@ BEGIN
             INNER JOIN Employee_Role er ON eal.Emp1_ID = er.employee_ID
         WHERE eal.Leave_ID = @request_ID AND (er.role_name = 'President');
 
-        IF @HR_Representative_Status = 'Approved' AND @UpperBoard_Status = 'Approved'
+        IF LOWER(@HR_Representative_Status) = 'approved' AND LOWER(@UpperBoard_Status) = 'approved'
         BEGIN
-            UPDATE [Leave] SET status = 'Approved' WHERE request_ID = @request_ID;
+            UPDATE [Leave] SET final_approval_status = 'approved' WHERE request_ID = @request_ID;
         END
-        ELSE IF @HR_Representative_Status = 'Rejected' OR @UpperBoard_Status = 'Rejected'
+        ELSE IF LOWER(@HR_Representative_Status) = 'rejected' OR LOWER(@UpperBoard_Status) = 'rejected'
         BEGIN
-            UPDATE [Leave] SET status = 'Rejected' WHERE request_ID = @request_ID;
+            UPDATE [Leave] SET final_approval_status = 'rejected' WHERE request_ID = @request_ID;
         END
     END
 
@@ -823,13 +829,13 @@ BEGIN
             INNER JOIN Employee_Role er ON eal.Emp1_ID = er.Employee_ID
         WHERE eal.Leave_ID = @request_ID AND er.role_name = 'President';
 
-        IF @HR_Representative_Status = 'Approved' AND @UpperBoard_Status = 'Approved'
+        IF LOWER(@HR_Representative_Status) = 'approved' AND LOWER(@UpperBoard_Status) = 'approved'
         BEGIN
-            UPDATE [Leave] SET status = 'Approved' WHERE request_ID = @request_ID;
+            UPDATE [Leave] SET final_approval_status = 'approved' WHERE request_ID = @request_ID;
         END
-        ELSE IF @HR_Representative_Status = 'Rejected' OR @UpperBoard_Status = 'Rejected'
+        ELSE IF (@HR_Representative_Status) = 'rejected' OR (@UpperBoard_Status) = 'rejected'
         BEGIN
-            UPDATE [Leave] SET status = 'Rejected' WHERE request_ID = @request_ID;
+            UPDATE [Leave] SET  final_approval_status = 'rejected' WHERE request_ID = @request_ID;
         END
     END
 END
