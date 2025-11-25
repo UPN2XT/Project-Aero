@@ -88,7 +88,7 @@ BEGIN
         SELECT 1
     FROM LEAVE AS l
         INNER JOIN (
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            SELECT request_id
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        SELECT request_id
             FROM Annual_Leave
             WHERE emp_id = @Employee_ID
         UNION ALL
@@ -146,8 +146,6 @@ BEGIN
     THEN @ID ELSE @employee_ID END
 END
 GO
-
-
 
 CREATE PROCEDURE Submit_annual
     @employee_ID INT,
@@ -245,7 +243,7 @@ BEGIN
     FROM Employee e
         INNER JOIN Employee_Role er ON er.emp_id = e.employee_ID
         INNER JOIN Role r ON r.role_name = er.role_name
-    WHERE r.rank = 1 OR dept_name = 'HR'
+    WHERE r.rank = 1 OR r.role_name = 'HR_Representative_' + @dept_name
     ELSE
     INSERT INTO Employee_Approve_Leave
         (Emp1_ID, Leave_ID)
@@ -255,15 +253,15 @@ BEGIN
     FROM Employee e
         INNER JOIN Employee_Role er ON er.emp_id = e.employee_ID
         INNER JOIN Role r ON r.role_name = er.role_name
-    WHERE (r.role_name = 'Dean' AND e.dept_name=@my_dept) OR e.dept_name = 'HR'
-
+    WHERE (r.role_name = 'Dean' AND e.dept_name=@my_dept)
+        OR r.role_name = 'HR_Representative_' + @dept_name
 END 
 GO
 
 CREATE FUNCTION Status_leaves(@employee_ID INT)
 RETURNS TABLE
 AS
-RETURN (                                                                                                                         SELECT al.request_ID,
+RETURN (                                                                                                                                     SELECT al.request_ID,
         l.date_of_request,
         l.final_approval_status AS status
     FROM Annual_Leave aL
@@ -424,7 +422,6 @@ BEGIN
     WHERE er.role_name = 'HR_Representative_' + @Dept;
 END
 GO
-
 
 CREATE PROCEDURE Submit_unpaid
     -- TODO://to be tested

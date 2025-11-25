@@ -24,7 +24,7 @@ FROM dbo.Deductions_Attendance(1,9)
 SELECT emp_ID, l.*
 FROM Leave l
     INNER JOIN (
-                                                                                                                                SELECT request_id, emp_ID
+                                                                                                                                                    SELECT request_id, emp_ID
         FROM Annual_Leave
     UNION ALL
         SELECT request_id, emp_id
@@ -65,44 +65,42 @@ SELECT e.employee_ID, role_name, [status]
 FROM Employee_Approve_Leave eal
     INNER JOIN Employee e ON eal.Emp1_ID = e.employee_ID
     INNER JOIN Employee_Role er ON er.emp_ID = e.employee_ID
-WHERE eal.Leave_ID = 3
+WHERE eal.Leave_ID = 39
 
 SELECT *
 FROM Employee_Approve_Leave
 WHERE Leave_ID = 27
 
-SELECT *
-FROM dbo.Status_leaves(1)
+SELECT employee_id
+FROM Employee
+WHERE
+ type_of_contract = 'part_time'
 
-EXECUTE dbo.Upperboard_approve_annual 27, 11, 3
+SELECT *
+FROM Employee
+WHERE dept_name = 'HR'
+
+EXECUTE dbo.Submit_annual 4, 5, '2025-12-3', '2025-12-6'
 
 SELECT emp_1.dept_name, emp_2.dept_name
 FROM Employee emp_1
     INNER JOIN Employee_Replace_Employee er On emp_1.employee_ID = er.Emp1_ID
     INNER JOIN Employee emp_2 On emp_2.employee_ID = er.Emp2_ID
 
-SELECT dbo.GET_ID_Replacment_IF_ON_LEAVE(employee_id), employee_id
-FROM Employee
+/*
+ @employee_ID INT,
+    @start_date DATE,
+    @end_date DATE,
+    @document_description VARCHAR(50),
+    @file_name VARCHAR(50)
 
-INSERT INTO Employee_Replace_Employee
-    (Emp1_ID, Emp2_ID, to_date, from_date)
-VALUES
-    (1, 3, '2025-11-30', '2025-11-20')
-INSERT INTO Leave
-    (date_of_request)
-VALUES
-    (GETDATE())
-INSERT INTO Annual_Leave
-    (request_ID, emp_ID)
-VALUES(31, 1)
+*/
 
-SELECT dbo.is_on_leave(1, GETDATE(), GETDATE())
-FROM Employee
-
-SELECT
-    *
-FROM Employee_Replace_Employee e
-WHERE Emp1_ID = 1
-    --WHERE e.from_date <= GETDATE() AND e.to_date >= GETDATE()
+SELECT dbo.GET_ID_Replacment_IF_ON_LEAVE(e.employee_id), @request_ID
+FROM Employee e
+    INNER JOIN Employee_Role er ON e.employee_ID = er.emp_id
+    INNER JOIN Role r ON er.role_name = r.role_name
+WHERE (r.role_name = 'Dean' AND e.dept_name = 'MET')
+    OR r.role_name = 'HR_Representative_' + e.dept_name OR r.[rank] = 1
 
 
