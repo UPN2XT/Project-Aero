@@ -88,7 +88,7 @@ BEGIN
         SELECT 1
     FROM LEAVE AS l
         INNER JOIN (
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        SELECT request_id
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    SELECT request_id
             FROM Annual_Leave
             WHERE emp_id = @Employee_ID
         UNION ALL
@@ -261,7 +261,7 @@ GO
 CREATE FUNCTION Status_leaves(@employee_ID INT)
 RETURNS TABLE
 AS
-RETURN (                                                                                                                                     SELECT al.request_ID,
+RETURN (                                                                                                                                                 SELECT al.request_ID,
         l.date_of_request,
         l.final_approval_status AS status
     FROM Annual_Leave aL
@@ -298,7 +298,7 @@ WHERE e.dept_name = e1.dept_name
                 ) then 'Approved' ELSE 'Rejected'
             END
             WHERE Emp1_ID = @Upperboard_ID AND Leave_ID=@request_id
-EXEC dbo.auto_update_annual @request_id;
+EXEC dbo.auto_update_annual_compensation @request_id;
 GO
 
 CREATE PROCEDURE Dean_andHR_Evaluation
@@ -548,6 +548,7 @@ BEGIN
                  END
     WHERE Emp1_ID = @Upperboard_ID
         AND Leave_ID = @request_ID;
+    EXECUTE dbo.auto_update_status @request_id
 END
 GO
 
@@ -576,7 +577,6 @@ BEGIN
         RETURN;
     END
 
-
     DECLARE @Dept VARCHAR(50);
     SELECT @Dept = dept_name
     FROM Employee
@@ -596,5 +596,6 @@ BEGIN
     WHERE er.role_name = 'HR_Representative_' + @Dept;
 END
 GO
+
 
 

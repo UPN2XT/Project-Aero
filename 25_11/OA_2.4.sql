@@ -205,109 +205,6 @@ BEGIN
 END
 GO
 
-CREATE PROCEDURE auto_update_accedintal_leave
-    @request_id INT
-AS
-BEGIN
-    UPDATE Leave SET final_approval_status = dbo.get_approval_status(@request_id, 'HR', 4) WHERE request_ID = @request_id
-END
-GO
-
-CREATE PROCEDURE auto_update_Medical_leave
-    @request_id INT
-AS
-BEGIN
-    UPDATE Leave SET final_approval_status = dbo.get_approval_status(@request_id, 'HR', 4) WHERE request_ID = @request_id
-END
-GO
-
-CREATE PROCEDURE auto_update_Unpaid_leave
-    @request_id INT
-AS
-BEGIN
-    DECLARE @Emp_dep VARCHAR(50);
-    DECLARE @emp_id INT;
-    SELECT TOP 1
-        @Emp_dep = dept_name, @emp_id = e.employee_ID
-    FROM Unpaid_Leave ul JOIN Employee e ON ul.emp_ID = e.employee_ID
-    WHERE request_id = @Request_id;
-    UPDATE Leave SET final_approval_status = 'approved' 
-    WHERE request_id = @request_id AND EXISTS (SELECT 1
-        FROM Employee_Approve_Leave
-        WHERE Leave_ID = @request_id AND lower(status) = 'approved');
-END
-GO
-
-CREATE PROCEDURE auto_update_annual
-    @request_ID INT
-AS
-BEGIN
-    DECLARE @Employee_ID INT, @Department VARCHAR(50), @Rank INT, @Start_date DATE, @End_date DATE;
-    DECLARE @Dean_ID INT, @ViceDean_ID INT, @Approver_ID INT, @HR_Representative_Status VARCHAR(50), @UpperBoard_Status VARCHAR(50);
-
-    SELECT @Employee_ID = e.employee_ID, @Department = e.dept_name, @Start_date = l.start_date, @End_date = l.end_date
-    FROM Employee e INNER JOIN Annual_Leave al ON e.employee_ID = al.emp_ID INNER JOIN [Leave] l ON al.request_ID = l.request_ID
-    WHERE l.request_ID = @request_ID;
-
-    SELECT TOP 1
-        @Rank = r.rank
-    FROM Role r INNER JOIN Employee_Role er ON r.role_name = er.role_name
-    WHERE er.emp_ID = @Employee_ID
-    ORDER BY r.rank ASC;
-
-    IF @Rank >= 5 
-    BEGIN
-        SELECT @HR_Representative_Status = status
-        FROM Employee_Approve_Leave eal INNER JOIN Employee_Role er ON eal.Emp1_ID = er.emp_ID
-        WHERE eal.Leave_ID = @request_ID AND er.role_name LIKE 'HR_Representative%';
-
-        SELECT @Dean_ID = e.employee_ID
-        FROM Employee e INNER JOIN Employee_Role er ON e.employee_ID = er.emp_ID
-        WHERE er.role_name = 'Dean' AND e.dept_name = @Department;
-        SELECT @ViceDean_ID = e.employee_ID
-        FROM Employee e INNER JOIN Employee_Role er ON e.employee_ID = er.emp_ID
-        WHERE er.role_name = 'Vice Dean' AND e.dept_name = @Department;
-
-        IF dbo.Is_On_Leave(@Dean_ID, @Start_date, @End_date) = 1 SET @Approver_ID = @ViceDean_ID; ELSE SET @Approver_ID = @Dean_ID;
-        SELECT @UpperBoard_Status = status
-        FROM Employee_Approve_Leave
-        WHERE Leave_ID = @request_ID AND Emp1_ID = @Approver_ID;
-
-        IF LOWER(@HR_Representative_Status) = 'approved' AND LOWER(@UpperBoard_Status) = 'approved'
-            UPDATE [Leave] SET final_approval_status = 'approved' WHERE request_ID = @request_ID;
-        ELSE IF LOWER(@HR_Representative_Status) = 'rejected' OR LOWER(@UpperBoard_Status) = 'rejected'
-            UPDATE [Leave] SET final_approval_status = 'rejected' WHERE request_ID = @request_ID;
-    END
-    ELSE IF (@Rank = 3 OR @Rank = 4) AND @Department <> 'HR'
-    BEGIN
-        SELECT @HR_Representative_Status = status
-        FROM Employee_Approve_Leave eal INNER JOIN Employee_Role er ON eal.Emp1_ID = er.emp_ID
-        WHERE eal.Leave_ID = @request_ID AND er.role_name LIKE 'HR_Representative%';
-        SELECT @UpperBoard_Status = status
-        FROM Employee_Approve_Leave eal INNER JOIN Employee_Role er ON eal.Emp1_ID = er.emp_ID
-        WHERE eal.Leave_ID = @request_ID AND er.role_name = 'President';
-
-        IF LOWER(@HR_Representative_Status) = 'approved' AND LOWER(@UpperBoard_Status) = 'approved'
-            UPDATE [Leave] SET final_approval_status = 'approved' WHERE request_ID = @request_ID;
-        ELSE IF LOWER(@HR_Representative_Status) = 'rejected' OR LOWER(@UpperBoard_Status) = 'rejected'
-            UPDATE [Leave] SET final_approval_status = 'rejected' WHERE request_ID = @request_ID;
-    END
-    ELSE IF @Rank = 4 AND @Department = 'HR'
-    BEGIN
-        SELECT @HR_Representative_Status = status
-        FROM Employee_Approve_Leave eal INNER JOIN Employee_Role er ON eal.Emp1_ID = er.emp_ID
-        WHERE eal.Leave_ID = @request_ID AND er.role_name = 'HR Manager';
-        SELECT @UpperBoard_Status = status
-        FROM Employee_Approve_Leave eal INNER JOIN Employee_Role er ON eal.Emp1_ID = er.emp_ID
-        WHERE eal.Leave_ID = @request_ID AND er.role_name = 'President';
-
-        IF LOWER(@HR_Representative_Status) = 'approved' AND LOWER(@UpperBoard_Status) = 'approved'
-            UPDATE [Leave] SET final_approval_status = 'approved' WHERE request_ID = @request_ID;
-        ELSE IF (@HR_Representative_Status) = 'rejected' OR (@UpperBoard_Status) = 'rejected'
-            UPDATE [Leave] SET  final_approval_status = 'rejected' WHERE request_ID = @request_ID;
-    END
-END
-GO
 
 CREATE PROCEDURE HR_approval_an_acc
     @request_ID int,
@@ -457,5 +354,51 @@ BEGIN
     ORDER BY r.rank ASC;
 
     RETURN @rank;
+END
+GO
+
+CREATE PROCEDURE auto_update_status(@request_id INT)
+AS
+BEGIN
+    DECLARE @Status VARCHAR(50) = 'pending'
+    IF EXISTS (SELECT 1
+    FROM Employee_Approve_Leave
+    WHERE Leave_ID = @request_id AND LOWER([status]) = 'rejected')
+    SET @Status = 'rejected'
+ELSE IF NOT EXISTS (SELECT 1
+    FROM Employee_Approve_Leave
+    WHERE Leave_ID = @request_id AND LOWER([status]) <> 'approved')
+SET @Status = 'approved'
+    UPDATE Leave
+SET final_approval_status = @status
+WHERE request_id = @request_id
+    IF @Status = 'rejected'
+UPDATE Employee_Approve_Leave
+SET [status] = @Status
+WHERE Leave_ID = @request_id
+END
+GO
+
+
+CREATE PROCEDURE auto_update_annual_compensation
+    @request_ID INT
+AS
+BEGIN
+    DECLARE @start_date DATE, @end_date DATE, @replacement_emp INT, @user_id INT
+    EXECUTE dbo.auto_update_status @request_id
+    SELECT TOP 1
+        @start_date = start_date, @end_date = end_date, @replacement_emp = replacement_emp,
+        @user_id = emp_ID
+    FROM (                                                SELECT emp_id, request_ID, replacement_emp
+            FROM Annual_Leave
+        UNION
+            SELECT emp_ID , request_ID, replacement_emp
+            FROM Compensation_Leave) AS c
+        INNER JOIN Leave ON Leave.request_ID = c.request_ID
+    WHERE c.request_ID = @request_ID
+    IF (SELECT final_approval_status
+    FROM Leave
+    WHERE request_id = @request_id) = 'approved'
+    EXECUTE dbo.Replace_employee @user_id, @replacement_emp, @start_date, @end_date
 END
 GO
