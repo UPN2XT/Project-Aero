@@ -1,6 +1,6 @@
-CREATE ROLE HR
-CREATE ROLE HR
+USE University_HR_ManagementSystem_Team_97;
 GO
+
 CREATE FUNCTION HRLoginValidation(@Employee_ID int, @Password varchar(50))--this has error invlaid column name for employee_ID and password
 RETURNS bit
 BEGIN
@@ -34,7 +34,7 @@ BEGIN
         RETURN;
     END;
 
-    IF @request_ID IN (                                                                                                                                                        SELECT request_id
+    IF @request_ID IN (                                                                                                                                                                SELECT request_id
         FROM Accidental_Leave
     UNION
         SELECT request_id
