@@ -30,7 +30,6 @@ WHERE emp_ID = @employee_ID
 )
 GO
 
-
 CREATE FUNCTION Last_month_payroll(@employee_ID INT)
 RETURNS TABLE
 AS
@@ -89,7 +88,7 @@ BEGIN
         SELECT 1
     FROM LEAVE AS l
         INNER JOIN (
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            SELECT request_id
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        SELECT request_id
             FROM Annual_Leave
             WHERE emp_id = @Employee_ID
         UNION ALL
@@ -246,7 +245,7 @@ GO
 CREATE FUNCTION Status_leaves(@employee_ID INT)
 RETURNS TABLE
 AS
-RETURN (                                                                                         SELECT al.request_ID,
+RETURN (                                                                                                     SELECT al.request_ID,
         l.date_of_request,
         l.final_approval_status AS status
     FROM Annual_Leave aL
@@ -537,7 +536,6 @@ BEGIN
 END
 GO
 
-
 CREATE PROCEDURE Submit_compensation
     @employee_ID INT,
     @compensation_date DATE,
@@ -545,106 +543,42 @@ CREATE PROCEDURE Submit_compensation
     @date_of_original_workday DATE,
     @replacement_emp INT
 AS
-DECLARE @dep_name_replacement varchar(50);
-DECLARE @my_dept varchar(50);
 BEGIN
-    IF MONTH(GETDATE()) <> MONTH(@date_of_original_workday) OR YEAR(GETDATE()) <> YEAR(@date_of_original_workday)
+    INSERT INTO Leave
+        (date_of_request, start_date, end_date, final_approval_status)
+    VALUES
+        (GETDATE(), @compensation_date, @compensation_date, 'pending');
+    DECLARE @ReqID INT = SCOPE_IDENTITY();
+    INSERT INTO Compensation_Leave
+        (request_id, emp_id, reason, date_of_original_workday, replacement_emp)
+    VALUES
+        (@ReqID, @employee_ID, @reason, @date_of_original_workday, @replacement_emp);
+
+    IF dbo.Is_On_Leave(@replacement_emp, @compensation_date, @compensation_date) = 1
     BEGIN
-        PRINT 'Error: Compensation leave must be requested within the same month as the extra work day.';
+        UPDATE Leave
+        SET final_approval_status = 'Rejected'
         RETURN;
     END
 
-    DECLARE @hours_worked INT;
 
-    SELECT @hours_worked = DATEDIFF(HOUR, check_in_time, check_out_time)
-    FROM Attendance
-    WHERE emp_id = @employee_ID
-        AND date = @date_of_original_workday;
-
-    IF @hours_worked IS NULL OR @hours_worked < 8
-    BEGIN
-        PRINT 'Error: You must have worked at least 8 hours on the original workday to claim compensation.';
-        RETURN;
-    END
-
-    DECLARE @official_day_off VARCHAR(50);
-    SELECT @official_day_off = official_day_off, @my_dept = dept_name
+    DECLARE @Dept VARCHAR(50);
+    SELECT @Dept = dept_name
     FROM Employee
     WHERE employee_ID = @employee_ID;
 
-    SELECT @dep_name_replacement = dept_name
-    FROM Employee e
-    WHERE e.employee_ID = @replacement_ID
-
-    IF dbo.is_on_leave(@replacement_emp, @compensation_date, @compensation_date) = 1
-    BEGIN
-        PRINT 'Error: replacment employee is on leave'
-        RETURN;
-    END
-
-    IF @my_dept <> @dep_name_replacement
-    BEGIN
-        PRINT 'Error: replacement employee is not from the same department'
-        RETURN;
-    END
-
-    IF DATENAME(WEEKDAY, @date_of_original_workday) <> @official_day_off
-    BEGIN
-        PRINT 'Error: The date of original work must match your official day off.';
-        RETURN;
-    END
-
-    DECLARE @request_ID INT;
-    DECLARE @rank INT;
-    DECLARE @dept_name VARCHAR(50);
-
-    SELECT @rank = MAX(r.rank),
-        @dept_name = e.dept_name
-    FROM Employee e
-        INNER JOIN Employee_Role er ON er.emp_id = e.employee_id
-        INNER JOIN Role r ON r.role_name = er.role_name
-    WHERE e.employee_id = @Employee_ID
-    GROUP BY e.dept_name;
-
-    INSERT INTO Leave
-        (date_of_request, start_date, end_date)
-    VALUES
-        (GETDATE(), @compensation_date, @compensation_date);
-
-    SET @request_ID = SCOPE_IDENTITY();
-
-    INSERT INTO Compensation_Leave
-        (request_id, emp_id, reason, original_work_date, replacement_emp)
-    VALUES
-        (@request_ID, @employee_ID, @reason, @date_of_original_workday, @replacement_emp);
-
-
-    IF EXISTS(
-        SELECT employee_id
-    FROM Employee
-    WHERE employee_id = @employee_id AND dept_name='HR'
-    )
-    BEGIN
-        INSERT INTO Employee_Approve_Leave
-            (Emp1_ID, Leave_ID)
-        SELECT e.employee_id, @request_id
-        FROM Employee e
-            INNER JOIN Employee_Role er ON er.emp_id = e.employee_id
-            INNER JOIN Role r ON r.role_name = er.role_name
-        WHERE e.dept_name = 'HR'
-            AND r.rank < @rank
-        GROUP BY e.employee_id
-    END
+    IF (@Dept = 'HR')
+    INSERT INTO Employee_Approve_Leave
+        (Emp1_ID, Leave_ID, status)
+    SELECT e.employee_ID, @ReqID, 'pending'
+    FROM Employee e INNER JOIN Employee_Role er ON e.employee_ID = er.emp_ID
+    WHERE er.role_name = 'HR Manager';
     ELSE
-    BEGIN
-        INSERT INTO Employee_Approve_Leave
-            (Emp1_ID, Leave_ID)
-        SELECT e.employee_id, @request_id
-        FROM Employee e
-            INNER JOIN Employee_Role er ON er.emp_id = e.employee_id
-            INNER JOIN Role r ON r.role_name = er.role_name
-        WHERE e.dept_name = 'HR'
-    END
+    INSERT INTO Employee_Approve_Leave
+        (Emp1_ID, Leave_ID, status)
+    SELECT e.employee_ID, @ReqID, 'pending'
+    FROM Employee e INNER JOIN Employee_Role er ON e.employee_ID = er.emp_ID
+    WHERE er.role_name = 'HR_Representative_' + @Dept;
 END
 GO
 
