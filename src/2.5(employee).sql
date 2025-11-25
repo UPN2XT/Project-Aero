@@ -88,7 +88,7 @@ BEGIN
         SELECT 1
     FROM LEAVE AS l
         INNER JOIN (
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        SELECT request_id
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            SELECT request_id
             FROM Annual_Leave
             WHERE emp_id = @Employee_ID
         UNION ALL
@@ -263,7 +263,7 @@ GO
 CREATE FUNCTION Status_leaves(@employee_ID INT)
 RETURNS TABLE
 AS
-RETURN (                                                                                                                     SELECT al.request_ID,
+RETURN (                                                                                                                         SELECT al.request_ID,
         l.date_of_request,
         l.final_approval_status AS status
     FROM Annual_Leave aL
@@ -516,7 +516,7 @@ BEGIN
         FROM Employee e
             INNER JOIN Employee_Role er ON er.emp_id = e.employee_ID
             INNER JOIN Role r ON r.role_name = er.role_name
-        WHERE r.rank = 1 OR r.role_name = 'HR_Representative_' + e.dept_name
+        WHERE r.rank = 1 OR r.role_name = 'HR_Representative_' + @dept_name
     END
 
     ELSE
@@ -528,7 +528,7 @@ BEGIN
             INNER JOIN Employee_Role er ON e.employee_ID = er.emp_id
             INNER JOIN Role r ON er.role_name = r.role_name
         WHERE (r.role_name = 'Dean' AND e.dept_name = @dept_name)
-            OR r.role_name = 'HR_Representative_' + e.dept_name OR r.[rank] = 1;
+            OR r.role_name = 'HR_Representative_' + @dept_name OR r.[rank] = 1;
     END
 END
 GO
