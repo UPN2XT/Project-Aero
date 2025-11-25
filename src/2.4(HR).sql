@@ -20,7 +20,7 @@ CREATE PROCEDURE HR_approval_an_acc
     @HR_ID int
 AS
 BEGIN
-    IF @request_ID IN (                                                                                                                                                        SELECT request_id
+    IF @request_ID IN (                                                                                                                                                                SELECT request_id
         FROM Accidental_Leave
     UNION
         SELECT request_id
@@ -476,7 +476,7 @@ BEGIN
             INNER JOIN Employee_Role er ON eal.Emp1_ID = er.employee_ID
         WHERE eal.Leave_ID = @request_ID
             AND er.role_name = 'HR_Representative';
-        
+
         SELECT @Dean_ID = e.employee_ID
         FROM Employee e
             INNER JOIN Employee_Role er ON e.employee_ID = er.employee_ID
@@ -486,7 +486,7 @@ BEGIN
         FROM Employee e
             INNER JOIN Employee_Role er ON e.employee_ID = er.employee_ID
         WHERE er.role_name = 'Vice Dean' AND e.dept_name = @Department;
- 
+
         IF dbo.Is_On_Leave(@Dean_ID, @Start_date, @End_date) = 1
         BEGIN
             SET @Approver_ID = @ViceDean_ID;
@@ -556,5 +556,20 @@ BEGIN
 END
 GO
 
-
+CREATE PROCEDURE auto_update_status(@request_id INT)
+AS
+BEGIN
+    DECLARE @Status VARCHAR(50) = 'pending'
+    IF EXISTS (SELECT 1
+    FROM Employee_Approve_Leave
+    WHERE Leave_ID = @request_id AND LOWER([status]) = 'rejected')
+    SET @Status = 'rejected'
+ELSE IF NOT EXISTS (SELECT 1
+    FROM Employee_Approve_Leave
+    WHERE Leave_ID = @request_id AND LOWER([status]) <> 'approved')
+SET @Status = 'approved'
+    UPDATE Leave
+SET final_approval_status = @status
+END
+GO 
 
