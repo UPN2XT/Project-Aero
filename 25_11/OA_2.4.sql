@@ -74,49 +74,7 @@ BEGIN
 END
 GO
 
-CREATE FUNCTION get_approval_status(@Request_ID INT, @Dep_name VARCHAR(50), @Min_Rank INT)
-RETURNS VARCHAR(50)
-AS
-BEGIN
-    RETURN CASE 
-        WHEN EXISTS (
-            SELECT Emp1_ID
-    FROM Employee_Approve_Leave
-        INNER JOIN Employee ON employee_ID = Emp1_ID AND dept_name = @Dep_name AND dbo.get_rank(employee_ID) <= @Min_Rank
-    WHERE Leave_ID = @request_id AND lower([status]) = 'approved'
-        ) THEN 'approved'
-        WHEN EXISTS (
-            SELECT Emp1_ID
-    FROM Employee_Approve_Leave
-        INNER JOIN Employee ON employee_id = Emp1_ID AND dept_name = @Dep_name
-    WHERE Leave_ID = @request_id AND LOWER([status]) = 'rejected' AND dbo.get_rank(employee_id) <= @Min_Rank
-        ) THEN 'rejected'
-        ELSE 'pending'
-    END
-END
-GO
 
-CREATE FUNCTION get_approval_status_pres(@Request_ID INT)
-RETURNS VARCHAR(50)
-AS
-BEGIN
-    RETURN CASE 
-        WHEN EXISTS (
-            SELECT Emp1_ID
-    FROM Employee_Approve_Leave
-        INNER JOIN Employee ON employee_id = Emp1_ID AND dept_name IS NULL AND dbo.get_rank(employee_id) = 1
-    WHERE Leave_ID = @request_id AND LOWER([status]) = 'approved'
-        ) THEN 'approved'
-        WHEN EXISTS (
-            SELECT Emp1_ID
-    FROM Employee_Approve_Leave
-        INNER JOIN Employee ON employee_id = Emp1_ID
-    WHERE Leave_ID = @request_id AND dbo.get_rank(employee_id) = 1 AND LOWER([status]) = 'rejected'
-        ) THEN 'rejected'
-        ELSE 'pending'
-    END
-END
-GO
 
 CREATE PROCEDURE Add_Payroll
     @Employee_ID INT,
