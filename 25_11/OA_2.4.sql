@@ -55,7 +55,8 @@ BEGIN
 
     SELECT @TotalHours = SUM(DATEDIFF(HOUR, check_in_time, check_out_time))
     FROM Attendance
-    WHERE emp_ID = @employee_ID AND MONTH(date) = MONTH(GETDATE()) AND YEAR(date) = YEAR(GETDATE());
+    WHERE a.emp_ID = @Employee_id
+        AND a.date >= DATEADD(day, -30, GETDATE());
 
     SELECT TOP 1
         @OvertimeFactor = r.percentage_overtime
@@ -73,49 +74,7 @@ BEGIN
 END
 GO
 
-CREATE FUNCTION get_approval_status(@Request_ID INT, @Dep_name VARCHAR(50), @Min_Rank INT)
-RETURNS VARCHAR(50)
-AS
-BEGIN
-    RETURN CASE 
-        WHEN EXISTS (
-            SELECT Emp1_ID
-    FROM Employee_Approve_Leave
-        INNER JOIN Employee ON employee_ID = Emp1_ID AND dept_name = @Dep_name AND dbo.get_rank(employee_ID) <= @Min_Rank
-    WHERE Leave_ID = @request_id AND lower([status]) = 'approved'
-        ) THEN 'approved'
-        WHEN EXISTS (
-            SELECT Emp1_ID
-    FROM Employee_Approve_Leave
-        INNER JOIN Employee ON employee_id = Emp1_ID AND dept_name = @Dep_name
-    WHERE Leave_ID = @request_id AND LOWER([status]) = 'rejected' AND dbo.get_rank(employee_id) <= @Min_Rank
-        ) THEN 'rejected'
-        ELSE 'pending'
-    END
-END
-GO
 
-CREATE FUNCTION get_approval_status_pres(@Request_ID INT)
-RETURNS VARCHAR(50)
-AS
-BEGIN
-    RETURN CASE 
-        WHEN EXISTS (
-            SELECT Emp1_ID
-    FROM Employee_Approve_Leave
-        INNER JOIN Employee ON employee_id = Emp1_ID AND dept_name IS NULL AND dbo.get_rank(employee_id) = 1
-    WHERE Leave_ID = @request_id AND LOWER([status]) = 'approved'
-        ) THEN 'approved'
-        WHEN EXISTS (
-            SELECT Emp1_ID
-    FROM Employee_Approve_Leave
-        INNER JOIN Employee ON employee_id = Emp1_ID
-    WHERE Leave_ID = @request_id AND dbo.get_rank(employee_id) = 1 AND LOWER([status]) = 'rejected'
-        ) THEN 'rejected'
-        ELSE 'pending'
-    END
-END
-GO
 
 CREATE PROCEDURE Add_Payroll
     @Employee_ID INT,
@@ -240,28 +199,30 @@ BEGIN
     END
     WHERE Emp1_ID = @HR_ID AND Leave_ID = @request_ID;
 
-    IF lower(@Type) = 'accidental' and (select status
-        from Employee_Approve_Leave
-        where @request_ID = Leave_ID AND @HR_ID = Emp1_ID) = 'approved'
+     IF lower(@Type) = 'annual'
+        EXEC dbo.auto_update_annual @request_id;
+    ELSE
+        EXEC dbo.auto_update_accedintal_leave @request_id;
+
+    IF lower(@Type) = 'accidental' and (select final_approval_status
+        from Leave
+        where @request_ID = Leave_ID) = 'approved'
     BEGIN
         UPDATE Employee
     set accidental_balance = accidental_balance-1
     where employee_ID = @emp_id
     END
 
-    IF lower(@Type) = 'annual' and (select status
-        from Employee_Approve_Leave
-        where @request_ID = Leave_ID AND @HR_ID = Emp1_ID) = 'approved'
+    IF lower(@Type) = 'annual' and (select final_approval_status
+        from Leave
+        where @request_ID = Leave_ID) = 'approved'
     BEGIN
         UPDATE Employee
     set annual_balance = annual_balance - @datediff
     where employee_ID = @emp_id
     END
 
-    IF lower(@Type) = 'annual'
-        EXEC dbo.auto_update_annual @request_id;
-    ELSE
-        EXEC dbo.auto_update_accedintal_leave @request_id;
+   
 END
 GO
 
@@ -295,7 +256,6 @@ END
 GO
 
 CREATE PROCEDURE HR_approval_comp
-    -- TODO::add exute when the function is ready
     @request_ID int,
     @HR_ID int
 AS
@@ -338,6 +298,7 @@ UPDATE Employee_Approve_Leave
 			ELSE 'rejected'
 			END
 		WHERE Emp1_ID = @HR_ID AND Leave_ID=@request_id
+        exec auto_update_annual_compensation @request_id
 END
 GO
 
