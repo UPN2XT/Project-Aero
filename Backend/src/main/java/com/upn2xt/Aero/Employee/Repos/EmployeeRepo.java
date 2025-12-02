@@ -7,5 +7,6 @@ import java.util.List;
 public interface EmployeeRepo {
 
     List<Attendance> myAttendance (Integer empId);
+    List<Object> myPerformance (Integer empId);
 
 }
