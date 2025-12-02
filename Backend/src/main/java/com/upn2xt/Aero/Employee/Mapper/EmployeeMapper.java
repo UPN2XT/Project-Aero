@@ -1,6 +1,9 @@
 package com.upn2xt.Aero.Employee.Mapper;
 
 import com.upn2xt.Aero.Employee.Dtos.Attendance;
+import com.upn2xt.Aero.Employee.Dtos.Deduction;
+import com.upn2xt.Aero.Employee.Dtos.PayRoll;
+import com.upn2xt.Aero.Employee.Dtos.Performance;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -25,6 +28,49 @@ public class EmployeeMapper {
             attendance.setEmpId(rs.getInt("emp_ID"));
             return attendance;
 
+    }
+
+    public static Performance mapPerformance(ResultSet rs, int rowNum) throws SQLException {
+        Performance performance = new Performance();
+        performance.setPerformanceID(rs.getInt("performanceID"));
+        performance.setRating(rs.getInt("rating"));
+        performance.setComments(rs.getString("comments"));
+        performance.setEmpID(rs.getInt("empID"));
+        performance.setSem(rs.getString("sem"));
+        return performance;
+    }
+
+    public static PayRoll mapPayRoll(ResultSet rs, int rowNum) throws SQLException {
+        PayRoll payroll = new PayRoll();
+        payroll.setID(rs.getInt("payroll_ID"));
+        payroll.setEmpID(rs.getInt("empID"));
+        if(payroll.getPaymentDate() != null) {
+            payroll.setPaymentDate(rs.getDate("paymentDate").toLocalDate());
+        }
+        if(payroll.getFrom() != null) {
+            payroll.setPaymentDate(rs.getDate("from").toLocalDate());
+        }
+        if(payroll.getTo() != null) {
+            payroll.setPaymentDate(rs.getDate("to").toLocalDate());
+        }
+        payroll.setFinalamount(rs.getInt("finalamount"));
+        payroll.setComments(rs.getString("comments"));
+        payroll.setDeduction(rs.getInt("deduction"));
+        payroll.setBonus(rs.getInt("bonus"));
+        return payroll;
+    }
+
+    public static Deduction mapDeduction(ResultSet rs, int rowNum) throws SQLException{
+        Deduction deduction = new Deduction();
+        deduction.setDeductionID(rs.getInt("deductionID"));
+        deduction.setEmpID(rs.getInt("empID"));
+        deduction.setDate(rs.getDate("date").toLocalDate());
+        deduction.setAmount(rs.getInt("amount"));
+        deduction.setType(rs.getString("type"));
+        deduction.setStatus(rs.getString("status"));
+        deduction.setUnpaidID(rs.getInt("unpaidID"));
+        deduction.setAttendanceID(rs.getInt("attendance_ID"));
+        return deduction;
     }
 
 }
