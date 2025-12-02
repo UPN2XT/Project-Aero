@@ -1,0 +1,6 @@
+color asasy	text-cyan-400
+shiny buttons	bg-cyan-700
+Canvas BG	bg-gray-950
+Card BG	bg-gray-800
+Success/Active	text-green-300
+Danger/Error	text-red-400
