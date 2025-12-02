@@ -451,7 +451,7 @@ values ('Contract','Contract of employee','Contract16','09-01-2025','08-31-2026'
 select * from Document
 ----------------------------
 insert into Attendance (date,check_in_time,check_out_time,status,emp_ID)
-values ('09-04-2025','08:30','17:30','attended',3)
+values ('12-04-2025','08:30','17:30','attended',3)
 insert into Attendance (date,check_in_time,check_out_time,status,emp_ID)
 values ('10-02-2025','08:30','16:30','attended',8)
 insert into Attendance (date,check_in_time,check_out_time,status,emp_ID)
@@ -616,3 +616,5 @@ SELECT employee_ID, password FROM Employee
 WHERE dept_name = 'HR';
 
 SELECT HRLoginValidation(4, '908')
+
+SELECT * FROM dbo.MyAttendance(3)
