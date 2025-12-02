@@ -1,6 +1,4 @@
-﻿EXECUTE dbo.createAllTables
-
-EXECUTE dbo.clearAllTables
+﻿EXECUTE dbo.clearAllTables
 ----------------------
 insert into Department (name,building_location)
 values ('MET','C building')
@@ -613,3 +611,8 @@ values (5,19,'pending')
 insert into Employee_Approve_Leave (Emp1_ID,leave_ID,status)
 values (5,20,'pending')
 ------------------------------------------------------
+
+SELECT employee_ID, password FROM Employee
+WHERE dept_name = 'HR';
+
+SELECT HRLoginValidation(4, '908')
