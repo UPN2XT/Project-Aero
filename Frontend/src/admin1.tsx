@@ -20,11 +20,11 @@ function Admin1() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-black to-red-950 p-4">
-      <div className="bg-gray-800/90 backdrop-blur-sm p-12 rounded-2xl shadow-3xl w-full max-w-md border border-red-700/50 transform transition duration-500 hover:shadow-red-500/30">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-black to-gray-950 p-4">
+      <div className="bg-gray-800/90 backdrop-blur-sm p-12 rounded-2xl shadow-3xl w-full max-w-md border border-cyan-700/50 transform transition duration-500 hover:shadow-cyan-500/30">
         
-        <h2 className="text-3xl font-extrabold mb-10 text-center text-red-500 tracking-tight drop-shadow-lg">
-          Admin Dashboard
+        <h2 className="text-3xl font-extrabold mb-10 text-center text-white tracking-tight drop-shadow-lg">
+          <span className="text-cyan-400">Admin</span> Panel
         </h2>
         
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -36,7 +36,7 @@ function Admin1() {
               id="username"
               type="text"
               placeholder="Enter your admin id"
-              className="w-full px-5 py-3 bg-gray-900 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-4 focus:ring-red-700 focus:border-red-500 transition duration-300"
+              className="w-full px-5 py-3 bg-gray-900 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-4 focus:ring-cyan-600 focus:border-cyan-400 transition duration-300"
               value={username}
               onChange={handleUsernameChange}
               required
@@ -50,7 +50,7 @@ function Admin1() {
               id="password"
               type="password"
               placeholder="Enter your admin password"
-              className="w-full px-5 py-3 bg-gray-900 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-4 focus:ring-red-700 focus:border-red-500 transition duration-300"
+              className="w-full px-5 py-3 bg-gray-900 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-4 focus:ring-cyan-600 focus:border-cyan-400 transition duration-300"
               value={password}
               onChange={handlePasswordChange}
               required
@@ -60,7 +60,7 @@ function Admin1() {
           {/* Submit Button */}
           <button
             type="submit"
-            className="w-full bg-gradient-to-r from-red-700 to-red-900 text-white py-3 rounded-xl hover:from-red-600 hover:to-red-800 transition duration-300 ease-in-out font-bold text-lg shadow-xl hover:shadow-red-600/40 transform hover:-translate-y-0.5"
+            className="w-full bg-gradient-to-r from-cyan-600 to-cyan-800 text-white py-3 rounded-xl hover:from-cyan-500 hover:to-cyan-700 transition duration-300 ease-in-out font-bold text-lg shadow-xl hover:shadow-cyan-500/40 transform hover:-translate-y-0.5"
           >
             Authenticate
           </button>
@@ -68,7 +68,7 @@ function Admin1() {
         
         {/* Forgot Password Link */}
         <div className="text-center mt-8 text-sm">
-            <a href="#" className="text-red-400 hover:text-red-200 font-medium transition duration-150">
+            <a href="#" className="text-cyan-400 hover:text-cyan-200 font-medium transition duration-150">
               Forgot Admin Password?
             </a>
         </div>
