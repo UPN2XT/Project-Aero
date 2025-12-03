@@ -12,7 +12,6 @@ import java.time.LocalTime;
 @AllArgsConstructor
 
 public class Submitunpaid {
-    private Integer empId;
     private LocalDate start;
     private LocalDate end;
     private String document;

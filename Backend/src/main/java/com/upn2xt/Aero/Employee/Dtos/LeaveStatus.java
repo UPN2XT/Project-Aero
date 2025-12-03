@@ -5,15 +5,12 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
-import java.time.LocalTime;
 
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-
-public class Submitcomp {
-    private LocalDate compdate;
-    private String reason;
-    private LocalDate orgianlday;
-    private Integer replacementId;
+public class LeaveStatus {
+    private Integer requestId;
+    private LocalDate dateOfRequest;
+    private String finalApprovalStatus;
 }

@@ -9,7 +9,6 @@ import java.time.LocalDate;
 @NoArgsConstructor
 @AllArgsConstructor
 public class SubmitAnnual {
-    private Integer empID;
     private Integer replacementID;
     private LocalDate start;
     private LocalDate end;

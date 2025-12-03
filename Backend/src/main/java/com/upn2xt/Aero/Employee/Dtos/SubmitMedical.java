@@ -12,7 +12,6 @@ import java.time.LocalTime;
 @AllArgsConstructor
 
 public class SubmitMedical {
-    private Integer empId;
     private LocalDate start;
     private LocalDate end;
     private String type;

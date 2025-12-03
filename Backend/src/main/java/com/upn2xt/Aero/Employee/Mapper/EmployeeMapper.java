@@ -1,9 +1,6 @@
 package com.upn2xt.Aero.Employee.Mapper;
 
-import com.upn2xt.Aero.Employee.Dtos.Attendance;
-import com.upn2xt.Aero.Employee.Dtos.Deduction;
-import com.upn2xt.Aero.Employee.Dtos.PayRoll;
-import com.upn2xt.Aero.Employee.Dtos.Performance;
+import com.upn2xt.Aero.Employee.Dtos.*;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -71,6 +68,20 @@ public class EmployeeMapper {
         deduction.setUnpaidID(rs.getInt("unpaidID"));
         deduction.setAttendanceID(rs.getInt("attendance_ID"));
         return deduction;
+    }
+
+    public static LeaveStatus mapLeaveStatus(ResultSet rs, int rowNum) throws SQLException {
+        LeaveStatus leaveStatus = new LeaveStatus();
+
+        leaveStatus.setRequestId(rs.getInt("request_ID"));
+
+        if (rs.getDate("date_of_request") != null) {
+            leaveStatus.setDateOfRequest(rs.getDate("date_of_request").toLocalDate());
+        }
+
+        leaveStatus.setFinalApprovalStatus(rs.getString("final_approval_status"));
+
+        return leaveStatus;
     }
 
 }

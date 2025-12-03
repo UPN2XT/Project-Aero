@@ -8,6 +8,5 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class Upperboardapproval {
     private Integer requestId;
-    private Integer UpperboardId;
     private Integer replacmentId;
 }
