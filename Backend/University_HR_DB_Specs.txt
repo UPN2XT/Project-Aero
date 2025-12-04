@@ -1,0 +1,604 @@
+Context & Domain Constraints
+Target System: University HR Management System Database Type: SQL Server (Transact-SQL) Integration Target: Spring Boot API
+
+1. Data Types & Enums Mapping
+Booleans: SQL bit maps to Java Boolean.
+
+Strings: SQL varchar(50)/char(11) maps to Java String.
+
+Dates: SQL date maps to Java LocalDate.
+
+Time: SQL time (check-in/out) maps to Java LocalTime.
+
+
+IDs: All IDs are identity(1,1)  and int.
+
+2. Domain Rules (Validation Logic)
+
+Rating Range: 1 to 5.
+
+
+Document Status: valid, expired.
+
+
+Leave Status: approved, rejected, pending (Default: pending).
+
+
+Deduction Types: unpaid, missing_hours, missing_days.
+
+
+Deduction Status: pending, finalized (Default: pending).
+
+
+Attendance Status: absent, attended (Default: Absent).
+
+
+Contract Type: full_time, part_time.
+
+
+Employment Status: active, onleave, notice_period, resigned.
+
+
+Medical Leave Type: sick, maternity.
+
+
+Work Hours: Full-time requirement is 8 hours/day.
+
+
+Salary Calculation: base_salary + (years_of_experience * 0.01 * base_salary).
+
+
+Overtime Calculation: (employee_salary / 22 / 8) * (overtime_factor * extra_hours / 100).
+
+3. Functional Specifications (API Endpoints)
+Group 2.1: System Setup & Teardown
+Use Case: System Initialization / Reset (Dev/Test Environment only)
+
+
+SQL Name: createAllTables 
+
+Type: Stored Procedure
+
+Input: None
+
+Java Return: void
+
+
+Description: Creates the database schema, all tables, and definitions.
+
+
+SQL Name: dropAllTables 
+
+Type: Stored Procedure
+
+Input: None
+
+Java Return: void
+
+
+Description: Drops all tables in the database.
+
+
+SQL Name: dropAllProceduresFunctionsViews 
+
+Type: Stored Procedure
+
+Input: None
+
+Java Return: void
+
+
+Description: Drops all stored procedures, functions, and views implemented in this milestone.
+
+
+SQL Name: clearAllTables 
+
+Type: Stored Procedure
+
+Input: None
+
+Java Return: void
+
+
+Description: Truncates/Clears all records in all tables.
+
+Group 2.2: Public/General Data Retrieval
+Use Case: General Dashboards & Reporting
+
+
+SQL Name: allEmployeeProfiles 
+
+Type: View
+
+Input: None
+
+Java Return: List<EmployeeProfileDTO>
+
+
+Columns: employee_ID, first_name, last_name, gender, email, address, years_of_experience, official_day_off, type_of_contract, employment_status, annual_balance, accidental_balance.
+
+
+SQL Name: NoEmployeeDept 
+
+Type: View
+
+Input: None
+
+Java Return: List<DepartmentStatsDTO>
+
+
+Description: Fetches the count of employees per department.
+
+
+SQL Name: allPerformance 
+
+Type: View
+
+Input: None
+
+Java Return: List<PerformanceDTO>
+
+
+Description: Performance details for all employees in Winter semesters.
+
+
+SQL Name: allRejectedMedicals 
+
+Type: View
+
+Input: None
+
+Java Return: List<MedicalLeaveDTO>
+
+
+Description: Details of all rejected medical leaves.
+
+
+SQL Name: allEmployeeAttendance 
+
+Type: View
+
+Input: None
+
+Java Return: List<AttendanceDTO>
+
+
+Description: Attendance records for all employees for "yesterday".
+
+Group 2.3: Admin Operations
+Use Case: System Administration (Spring Security Role: ADMIN)
+
+
+SQL Name: Update_Status_Doc 
+
+Type: Stored Procedure
+
+Input: None
+
+Java Return: void
+
+
+Description: Updates document status to 'expired' based on date.
+
+
+SQL Name: Remove_Deductions 
+
+Type: Stored Procedure
+
+Input: None
+
+Java Return: void
+
+
+Description: Removes deductions for resigned employees based on employment status.
+
+
+SQL Name: Update_Employment_Status 
+
+Type: Stored Procedure
+
+Input: Employee_ID (int)
+
+Java Return: void
+
+
+Description: Updates status daily based on leave/active state.
+
+
+SQL Name: Create_Holiday 
+
+Type: Stored Procedure
+
+Input: None
+
+Java Return: void
+
+
+Description: Generates the lookup table for holidays.
+
+
+SQL Name: Add_Holiday 
+
+Type: Stored Procedure
+
+
+Input: holiday_name (String), from_date (LocalDate), to_date (LocalDate).
+
+Java Return: void
+
+
+Description: Inserts a new official holiday.
+
+
+SQL Name: Intitiate_Attendance 
+
+Type: Stored Procedure
+
+Input: None
+
+Java Return: void
+
+
+Description: Creates empty attendance records for the current day for all employees.
+
+
+SQL Name: Update_Attendance 
+
+Type: Stored Procedure
+
+
+Input: Employee_id (int), check_in (LocalTime), check_out (LocalTime).
+
+Java Return: void
+
+
+Description: Updates check-in/out times and status.
+
+
+SQL Name: Remove_Holiday 
+
+Type: Stored Procedure
+
+Input: None
+
+Java Return: void
+
+
+Description: Deletes attendance records falling on official holidays.
+
+
+SQL Name: Remove_DayOff 
+
+Type: Stored Procedure
+
+Input: Employee_id (int)
+
+Java Return: void
+
+
+Description: Removes unattended day-off records for the current month.
+
+
+SQL Name: Remove_Approved_Leaves 
+
+Type: Stored Procedure
+
+Input: Employee_id (int)
+
+Java Return: void
+
+
+Description: Removes attendance records matching approved leave dates.
+
+
+SQL Name: Replace_employee 
+
+Type: Stored Procedure
+
+
+Input: Emp1_ID (int), Emp2_ID (int), from_date (LocalDate), to_date (LocalDate).
+
+Java Return: void
+
+
+Description: Assigns a replacement employee for a specific duration.
+
+Group 2.4: HR Operations
+Use Case: Human Resources Management (Spring Security Role: HR)
+
+
+SQL Name: HRLoginValidation 
+
+Type: Function
+
+Input: employee_ID (int), password (String)
+
+
+Java Return: Boolean (Success bit).
+
+
+SQL Name: HR_approval_an_acc 
+
+Type: Stored Procedure
+
+Input: request_ID (int), HR_ID (int)
+
+Java Return: void
+
+
+Description: Process Annual/Accidental leaves based on balance.
+
+
+SQL Name: HR_approval_unpaid 
+
+Type: Stored Procedure
+
+Input: request_ID (int), HR_ID (int)
+
+Java Return: void
+
+
+Description: Process unpaid leave requests.
+
+
+SQL Name: HR_approval_comp 
+
+Type: Stored Procedure
+
+Input: request_ID (int), HR_ID (int)
+
+Java Return: void
+
+Description: Process compensation leave requests. Condition: Employee must have worked >8 hours on a day off.
+
+
+SQL Name: Deduction_hours 
+
+Type: Stored Procedure
+
+Input: employee_ID (int)
+
+Java Return: void
+
+
+Description: Adds deduction for missing hours (referenced to first <8hr record).
+
+
+SQL Name: Deduction_days 
+
+Type: Stored Procedure
+
+Input: employee_ID (int)
+
+Java Return: void
+
+
+Description: Adds deduction for missing days.
+
+
+SQL Name: Deduction_unpaid 
+
+Type: Stored Procedure
+
+Input: employee_ID (int)
+
+Java Return: void
+
+
+Description: Adds deduction for unpaid leave (split by month if spanning).
+
+
+SQL Name: Bonus_amount 
+
+Type: Function
+
+Input: employee_ID (int)
+
+
+Java Return: BigDecimal/Double (Bonus value).
+
+
+Description: Calculates bonus based on overtime guidelines.
+
+
+SQL Name: Add_Payroll 
+
+Type: Stored Procedure
+
+
+Input: employee_ID (int), from_date (LocalDate), to_date (LocalDate).
+
+Java Return: void
+
+
+Description: Generates monthly payroll.
+
+Group 2.5: Employee Self-Service
+Use Case: Employee Portal (Spring Security Role: USER)
+
+
+SQL Name: EmployeeLoginValidation 
+
+Type: Function
+
+Input: employee_ID (int), password (String)
+
+
+Java Return: Boolean (Success bit).
+
+
+SQL Name: MyPerformance 
+
+Type: Table Valued Function
+
+
+Input: employee_ID (int), semester (String, e.g., 'W25').
+
+Java Return: List<PerformanceDTO>
+
+
+Description: Performance records for a specific semester.
+
+
+SQL Name: MyAttendance 
+
+Type: Table Valued Function
+
+Input: employee_ID (int)
+
+Java Return: List<AttendanceDTO>
+
+
+Description: Current month attendance (excluding unattended official days off).
+
+
+SQL Name: Last_month_payroll 
+
+Type: Table Valued Function
+
+Input: employee_ID (int)
+
+Java Return: List<PayrollDTO>
+
+
+Description: Payroll details for the previous month.
+
+
+SQL Name: Deductions_Attendance 
+
+Type: Table Valued Function
+
+Input: employee_ID (int), month (int)
+
+Java Return: List<DeductionDTO>
+
+
+Description: Deductions caused by attendance issues in a specific month.
+
+
+SQL Name: Is_On_Leave 
+
+Type: Function
+
+
+Input: employee_ID (int), from_date (LocalDate), to_date (LocalDate).
+
+Java Return: Boolean (Success bit)
+
+
+Description: Checks if employee is on leave (treats 'pending' as approved for this check).
+
+
+SQL Name: Status_leaves 
+
+Type: Table Valued Function
+
+Input: employee_ID (int)
+
+
+Java Return: List<LeaveStatusDTO> (Columns: request_ID, date_of_request, status).
+
+
+SQL Name: Submit_annual 
+
+Type: Stored Procedure
+
+
+Input: employee_ID (int), replacement_emp (int), start_date (LocalDate), end_date (LocalDate).
+
+Java Return: void
+
+
+Description: Submits annual leave and populates approval hierarchy.
+
+
+SQL Name: Submit_accidental 
+
+Type: Stored Procedure
+
+
+Input: employee_ID (int), start_date (LocalDate), end_date (LocalDate).
+
+Java Return: void
+
+
+Description: Submits accidental leave request.
+
+
+SQL Name: Submit_medical 
+
+Type: Stored Procedure
+
+
+Input: employee_ID (int), start_date, end_date, type (String), insurance_status (Boolean), disability_details, document_description, file_name.
+
+Java Return: void
+
+
+Description: Submits medical leave request.
+
+
+SQL Name: Submit_unpaid 
+
+Type: Stored Procedure
+
+
+Input: employee_ID (int), start_date, end_date, document_description, file_name.
+
+Java Return: void
+
+
+Description: Submits unpaid leave request.
+
+
+SQL Name: Submit_compensation 
+
+Type: Stored Procedure
+
+
+Input: employee_ID, compensation_date, reason, date_of_original_workday, replacement_emp.
+
+Java Return: void
+
+
+Description: Submits compensation leave request.
+
+Group 2.6: Senior Management Operations
+Use Case: Approvals (Dean, Vice-Dean, President)
+
+
+SQL Name: Upperboard_approve_annual 
+
+Type: Stored Procedure
+
+
+Input: request_ID (int), Upperboard_ID (int), replacement_ID (int).
+
+Java Return: void
+
+Description: Approve/Reject annual leaves. Auto-approve if replacement is valid/in-department.
+
+
+SQL Name: Upperboard_approve_unpaids 
+
+Type: Stored Procedure
+
+
+Input: request_ID (int), Upperboard_ID (int).
+
+Java Return: void
+
+Description: Approve/Reject unpaid leaves. Valid memo auto-approves.
+
+
+SQL Name: Dean_andHR_Evaluation 
+
+Type: Stored Procedure
+
+
+Input: employee_ID (int), rating (int), comment (String), semester (String).
+
+Java Return: void
+
+
+Description: Dean evaluates employees within their department.

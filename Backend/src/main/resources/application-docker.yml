@@ -1,0 +1,30 @@
+spring:
+  h2:
+    console:
+      enabled: false
+  application:
+    name: University-HR-ManagementSystem
+  datasource:
+    url: jdbc:sqlserver://${DB_HOST:mssql}:${DB_PORT:1433};databaseName=${DB_NAME:University_HR_ManagementSystem};encrypt=true;trustServerCertificate=true
+    username: ${DB_USER:sa}
+    password: ${DB_PASSWORD:YourStrong@Passw0rd}
+    driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
+
+  sql:
+    init:
+      separator: GO
+      mode: always
+      continue-on-error: true
+
+security:
+  jwt:
+    secret-key: ${JWT_SECRET:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
+    expiration-time: ${JWT_EXPIRATION:3600000}
+
+server:
+  port: 8085
+
+logging:
+  level:
+    org.springframework.jdbc.datasource.init: DEBUG
+    org.springframework.jdbc.datasource.init.ScriptUtils: DEBUG
