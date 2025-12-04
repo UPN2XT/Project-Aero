@@ -581,7 +581,7 @@ BEGIN
             WHERE emp_ID = @Employee_id
             AND [date] = @today;
     END
-END;
+END
 GO
 ----------- 2.3 h -------------
 
@@ -790,23 +790,30 @@ GO
 ---------------------------------------------------- 2.4 ----------------------------------------
 ------------------------------------------- a) ---------------------------------------------------
 CREATE OR ALTER FUNCTION HRLoginValidation
-(@employee_ID int,
- @password varchar(50))
-    Returns BIT
+(
+    @employee_ID int,
+    @password varchar(50)
+)
+    RETURNS BIT
 AS
-Begin
-    Declare @success BIT
+BEGIN
+    DECLARE @success BIT;
+
     IF EXISTS (
         SELECT 1
-    FROM Employee E
-    WHERE employee_id=@employee_ID AND password=@password
-        and dept_name = 'HR')
-        SET @success =1
+        FROM Employee E
+        WHERE employee_id = @employee_ID
+          AND password = @password
+          AND dept_name = 'HR'
+    )
+        SET @success = 1;
     ELSE
-        SET @success =0
-    Return @success
-END
-go
+        SET @success = 0;
+
+    RETURN @success;
+END;
+GO
+
 
 
 ----------------------------------------------------- b) --------------------------------
@@ -1720,7 +1727,6 @@ GO
 
 ------------------------------------------------------
 ----------------------2.5 g Submit_annual
-GO
 CREATE or alter proc Submit_annual
     @employee_ID int,
     @replacement_emp int,
@@ -1844,77 +1850,80 @@ end
         (@dean_id, @req_id)-- @dean_id
 end
 GO
-
+-- getCorrespondingHR
 
 ------------- 2.5 h --------------
 
-go
-CREATE or alter FUNCTION status_leaves
-(@employee_ID int)
+CREATE OR ALTER FUNCTION status_leaves
+(
+    @employee_ID int
+)
     RETURNS TABLE
         AS
-        RETURN (
-                SELECT L.request_ID, L.date_of_request, L.final_approval_status
-    FROM Leave L
-        left outer JOIN Annual_Leave An
-        ON  L.request_ID=An.request_ID
-    where  An.emp_ID=@employee_ID and MONTH(CURRENT_TIMESTAMP) = MONTH(L.date_of_request)
-        and YEAR(CURRENT_TIMESTAMP) = YEAR(L.date_of_request)
+        RETURN
+        (
+        SELECT L.request_ID, L.date_of_request, L.final_approval_status
+        FROM [Leave] L
+                 LEFT JOIN Annual_Leave An ON L.request_ID = An.request_ID
+        WHERE An.emp_ID = @employee_ID
+          AND MONTH(CURRENT_TIMESTAMP) = MONTH(L.date_of_request)
+          AND YEAR(CURRENT_TIMESTAMP) = YEAR(L.date_of_request)
 
-Union
-    SELECT L.request_ID, L.date_of_request, L.final_approval_status
-    FROM Leave L
-        left outer JOIN Accidental_Leave Ac
-        ON  L.request_ID=Ac.request_ID
-    where  Ac.emp_ID=@employee_ID and MONTH(CURRENT_TIMESTAMP) = MONTH(L.date_of_request)
-        and YEAR(CURRENT_TIMESTAMP) = YEAR(L.date_of_request))
+        UNION
+
+        SELECT L.request_ID, L.date_of_request, L.final_approval_status
+        FROM [Leave] L
+                 LEFT JOIN Accidental_Leave Ac ON L.request_ID = Ac.request_ID
+        WHERE Ac.emp_ID = @employee_ID
+          AND MONTH(CURRENT_TIMESTAMP) = MONTH(L.date_of_request)
+          AND YEAR(CURRENT_TIMESTAMP) = YEAR(L.date_of_request)
+        );
+
 GO
 
 
-----------------------------------------
--- helper function 3----
-GO
 CREATE OR ALTER FUNCTION getCorrespondingHR
-(@emp_id int)
+(
+    @emp_id INT
+)
     RETURNS INT
 AS
 BEGIN
+    DECLARE @HR_ID INT;
+    DECLARE @today DATE = CAST(CURRENT_TIMESTAMP AS DATE);
 
-    DECLARE @HR_ID int
-
-    SELECT @HR_ID= E2.employee_ID
+    SELECT @HR_ID = E2.employee_ID
     FROM Employee E2
-        INNER JOIN Employee_Role ER
-        ON E2.employee_id = ER.emp_ID
-        INNER JOIN Employee E1
-        ON  ER.role_name like '%'+E1.dept_name+'%'
-    WHERE E1.employee_id = @emp_id AND E2.dept_name like '%HR%' AND E1.employee_id <> E2.employee_id
-        AND ER.role_name like '%'+E1.dept_name+'%'
-        AND E1.employee_id=@emp_id
-    --repeated??
-    --check if on leave get replacement
-    --print @HR_ID
-    declare @on_leave_HR bit =
-        dbo.Is_On_Leave ( @HR_ID,
-                          CAST(CURRENT_TIMESTAMP AS DATE), CAST(CURRENT_TIMESTAMP AS DATE))
-    --if on leave
-    --print @on_leave_HR
-    if(@on_leave_HR = 1)
-        begin
-        declare @replacement_id int
-        select @replacement_id =  Emp2_ID
-        from Employee_Replace_Employee
-        where CAST(CURRENT_TIMESTAMP AS DATE) between from_date and to_date
-            and Emp1_ID = @HR_ID
+             INNER JOIN Employee_Role ER
+                        ON E2.employee_id = ER.emp_ID
+             INNER JOIN Employee E1
+                        ON ER.role_name LIKE '%' + E1.dept_name + '%'
+    WHERE
+        E1.employee_id = @emp_id
+      AND E2.dept_name LIKE '%HR%'
+      AND E1.employee_id <> E2.employee_id
+      AND ER.role_name LIKE '%' + E1.dept_name + '%';
 
-        set @HR_ID = @replacement_id
-    end
+    -- Check if HR is on leave
+    DECLARE @on_leave_HR BIT;
+    SET @on_leave_HR = dbo.Is_On_Leave(@HR_ID, @today, @today);
 
-    RETURN @HR_ID
+    IF (@on_leave_HR = 1)
+        BEGIN
+            DECLARE @replacement_id INT;
+
+            SELECT @replacement_id = Emp2_ID
+            FROM Employee_Replace_Employee
+            WHERE @today BETWEEN from_date AND to_date
+              AND Emp1_ID = @HR_ID;
+
+            SET @HR_ID = @replacement_id;
+        END
+
+    RETURN @HR_ID;
 END
+GO
 
-------------------------------------------------------------
-go
 --helper 4
 ---------
 CREATE OR ALTER FUNCTION getCorrespondingHR_Manager()
