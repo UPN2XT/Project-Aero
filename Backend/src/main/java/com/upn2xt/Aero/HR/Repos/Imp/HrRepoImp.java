@@ -9,6 +9,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 import java.sql.Date;
+import java.time.LocalDate;
 import java.util.List;
 
 @Repository
@@ -54,29 +55,27 @@ public class HrRepoImp implements HrRepo {
     }
 
     @Override
-    public void Add_Payroll(Integer employee_id, Date from_date, Date to_date) {
-        String sql = "EXEC Add_Payroll ?, ?";
-        jdbcTemplate.update(sql, employee_id, from_date, to_date);
+    public void Add_Payroll(Integer employee_id, LocalDate from_date, LocalDate to_date) {
+        String sql = "EXEC Add_Payroll ?, ?, ?";
+        jdbcTemplate.update(sql, employee_id, Date.valueOf(from_date), Date.valueOf(to_date));
     }
 
     @Override
     public List<Leave> getApprovalOFLeaves(Integer hr_id) {
-        String sql = "SELECT * FROM get_approvals(?)";
+        String sql = "SELECT * FROM dbo.get_approvals(?)";
         return jdbcTemplate.query(
                 sql,
                 HRMapper::mapLeave,
-                hr_id
-        );
+                hr_id);
     }
 
     @Override
     public List<Employee> getEmployeesManaged(Integer hr_id) {
-        String sql = "SELECT * FROM get_employee_managed_by_hr(?)";
+        String sql = "SELECT * FROM dbo.get_employee_managed_by_hr(?)";
 
         return jdbcTemplate.query(
                 sql,
                 HRMapper::mapManagedEmployee,
-                hr_id
-        );
+                hr_id);
     }
 }

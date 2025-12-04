@@ -3,7 +3,7 @@ package com.upn2xt.Aero.HR.Repos;
 import com.upn2xt.Aero.HR.Dtos.Employee;
 import com.upn2xt.Aero.HR.Dtos.Leave;
 
-import java.sql.Date;
+import java.time.LocalDate;
 import java.util.List;
 
 public interface HrRepo {
@@ -20,7 +20,7 @@ public interface HrRepo {
 
     void Deduction_unpaid(Integer employee_id);
 
-    void Add_Payroll(Integer employee_id, Date from_date, Date to_date);
+    void Add_Payroll(Integer employee_id, LocalDate from_date, LocalDate to_date);
 
     List<Leave> getApprovalOFLeaves(Integer hr_id);
 

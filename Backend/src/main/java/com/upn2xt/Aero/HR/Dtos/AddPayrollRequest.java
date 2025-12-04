@@ -4,15 +4,15 @@ import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
-import java.sql.Date;
+import java.time.LocalDate;
 
 @EqualsAndHashCode(callSuper = true)
 @Data
 public class AddPayrollRequest extends EmployeePayrollRequest {
 
     @NotNull(message = "From date is required")
-    private Date fromDate;
+    private LocalDate fromDate;
 
     @NotNull(message = "To date is required")
-    private Date toDate;
+    private LocalDate toDate;
 }

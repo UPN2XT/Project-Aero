@@ -1,6 +1,265 @@
-## Updates
+# 🚀 Project AERO - University HR Management System
 
-please before commiting add what you changed here
+A comprehensive HR Management System built with Spring Boot and SQL Server for university environments.
+
+## 📋 Table of Contents
+
+- [Prerequisites](#prerequisites)
+- [Quick Start with Docker](#quick-start-with-docker)
+- [Environment Configuration](#environment-configuration)
+- [Running Locally (Development)](#running-locally-development)
+- [API Documentation](#api-documentation)
+- [Project Structure](#project-structure)
+- [Updates Log](#updates-log)
+
+---
+
+## Prerequisites
+
+Before running this project, ensure you have the following installed:
+
+- **Docker** (v20.10+) and **Docker Compose** (v2.0+)
+- **Java 17+** (for local development)
+- **Maven 3.8+** (for local development)
+- **Node.js 18+** (for frontend development)
+
+---
+
+## Quick Start with Docker
+
+### 1. Clone the Repository
+
+```bash
+git clone https://github.com/UPN2XT/Project-Aero.git
+cd Project-Aero
+```
+
+### 2. Create Environment File
+
+Create a `.env` file in the root directory with the following variables:
+
+```env
+# Database Configuration
+DB_NAME=University_HR_ManagementSystem
+DB_PASSWORD=YourStrong@Passw0rd
+
+# JWT Configuration
+JWT_SECRET=404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+JWT_EXPIRATION=3600000
+```
+
+> ⚠️ **Important:** Use a strong password for `DB_PASSWORD`. It must meet SQL Server's password policy:
+> - At least 8 characters
+> - Contains uppercase and lowercase letters
+> - Contains numbers
+> - Contains special characters
+
+### 3. Start the Application
+
+```bash
+docker-compose up -d
+```
+
+This command will:
+1. Pull the SQL Server 2022 image from Microsoft Container Registry
+2. Start the SQL Server container with health checks
+3. Wait for SQL Server to be healthy
+4. Start the Spring Boot backend application
+
+### 4. Verify the Services
+
+Check if containers are running:
+
+```bash
+docker-compose ps
+```
+
+You should see:
+| Container | Status | Port |
+|-----------|--------|------|
+| aero-mssql | healthy | 1433 |
+| aero-backend | running | 8085 |
+
+### 5. Access the Application
+
+- **Backend API:** http://localhost:8085
+- **Swagger UI:** http://localhost:8085/docs
+- **SQL Server:** localhost:1433
+
+---
+
+## Environment Configuration
+
+### Docker Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `DB_HOST` | SQL Server hostname | `mssql` |
+| `DB_PORT` | SQL Server port | `1433` |
+| `DB_NAME` | Database name | `University_HR_ManagementSystem` |
+| `DB_USER` | Database username | `sa` |
+| `DB_PASSWORD` | Database password | **Required** |
+| `JWT_SECRET` | Secret key for JWT tokens | **Required** |
+| `JWT_EXPIRATION` | JWT token expiration (ms) | `3600000` |
+
+---
+
+## Running Locally (Development)
+
+### Option 1: SQL Server in Docker Only
+
+1. Start only the SQL Server container:
+
+```bash
+docker-compose up -d mssql
+```
+
+2. Update `Backend/src/main/resources/application.yml` with your local settings:
+
+```yaml
+spring:
+  datasource:
+    url: jdbc:sqlserver://localhost:1433;databaseName=University_HR_ManagementSystem;encrypt=true;trustServerCertificate=true
+    username: sa
+    password: YourStrong@Passw0rd
+```
+
+3. Run the Spring Boot application:
+
+```bash
+cd Backend
+./mvnw spring-boot:run
+```
+
+### Option 2: Using Spring Docker Profile
+
+Run with the docker profile:
+
+```bash
+cd Backend
+./mvnw spring-boot:run -Dspring-boot.run.profiles=docker
+```
+
+---
+
+## API Documentation
+
+Once the application is running, access the Swagger UI at:
+
+**http://localhost:8085/docs**
+
+### Available API Modules
+
+| Module | Base Path | Description |
+|--------|-----------|-------------|
+| **Admin** | `/api/admin` | Administrative operations (ADMIN role) |
+| **HR** | `/api/hr` | Human Resources management (HR role) |
+| **Employee** | `/api/employee` | Employee self-service (USER role) |
+| **Auth** | `/api/auth` | Authentication endpoints |
+
+---
+
+## Project Structure
+
+```
+Project-Aero/
+├── Backend/
+│   ├── src/main/java/com/upn2xt/Aero/
+│   │   ├── Admin/          # Admin module
+│   │   ├── Auth/           # Authentication
+│   │   ├── Employee/       # Employee self-service
+│   │   └── HR/             # HR operations
+│   ├── src/main/resources/
+│   │   ├── application.yml        # Local config
+│   │   ├── application-docker.yml # Docker config
+│   │   └── schema.sql             # Database schema
+│   └── pom.xml
+├── Frontend/
+│   └── src/                # React frontend
+├── docker-compose.yml
+└── README.md
+```
+
+---
+
+## Docker Commands Reference
+
+### Start Services
+```bash
+docker-compose up -d
+```
+
+### Stop Services
+```bash
+docker-compose down
+```
+
+### View Logs
+```bash
+# All services
+docker-compose logs -f
+
+# Specific service
+docker-compose logs -f backend
+docker-compose logs -f mssql
+```
+
+### Rebuild Backend Image
+```bash
+docker-compose build backend
+docker-compose up -d
+```
+
+### Connect to SQL Server (via Docker)
+```bash
+docker exec -it aero-mssql /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "YourStrong@Passw0rd" -C
+```
+
+### Reset Database (Clear All Data)
+```bash
+docker-compose down -v
+docker-compose up -d
+```
+
+---
+
+## Troubleshooting
+
+### SQL Server Container Not Starting
+
+1. Ensure Docker has at least 2GB of RAM allocated
+2. Check if port 1433 is already in use:
+   ```bash
+   netstat -an | findstr 1433
+   ```
+3. View container logs:
+   ```bash
+   docker logs aero-mssql
+   ```
+
+### Backend Cannot Connect to Database
+
+1. Ensure SQL Server is healthy:
+   ```bash
+   docker-compose ps
+   ```
+2. Wait for the health check to pass (may take 30-60 seconds)
+3. Verify environment variables in `.env` file
+
+### Password Policy Error
+
+SQL Server requires strong passwords. Ensure your `DB_PASSWORD`:
+- Has at least 8 characters
+- Contains uppercase letters (A-Z)
+- Contains lowercase letters (a-z)
+- Contains numbers (0-9)
+- Contains special characters (!@#$%^&*)
+
+---
+
+## Updates Log
+
+Please document changes before committing:
 
 - ### bv1 (by Omar Ahmed):
 
@@ -29,6 +288,8 @@ please before commiting add what you changed here
   - there are syntax errors in 2.5
   - further info will be added in a later commit once i finish
   - please work inside src to keep things orgnaized
+
+---
 
 ## 📄 README: University HR Management System - Milestone 2
 
