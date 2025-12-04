@@ -18,110 +18,124 @@ public class AdminRepoImp implements AdminRepo {
     private JdbcTemplate jdbcTemplate;
 
     @Override
-    public List<EmployeeProfile> allProfiles() {
-        String sql = "SELECT * FROM dbo.AllEmployeeProfiles";
-        return jdbcTemplate.query(sql, AdminMapper::mapProfile);
+    public List<allEmployeeProfiles> allEmployeeProfiles() {
+        String sql = "SELECT * FROM allEmployeeProfiles";
+        return jdbcTemplate.query(
+                sql,
+                AdminMapper::mapAllEmployeeProfiles
+        );
     }
 
     @Override
-    public List<EmployeeDeptCount> deptCounts() {
-        String sql = "SELECT * FROM dbo.EmployeeCountPerDepartment";
-        return jdbcTemplate.query(sql, AdminMapper::mapDeptCount);
+    public List<NoEmployeeDept> NoEmployeeDept() {
+        String sql = "SELECT * FROM NoEmployeeDept";
+        return jdbcTemplate.query(
+                sql,
+                AdminMapper::mapNoEmployeeDept
+        );
     }
 
     @Override
-    public List<RejectedMedical> rejectedMedicals() {
-        String sql = "SELECT * FROM dbo.RejectedMedicalLeaves";
-        return jdbcTemplate.query(sql, AdminMapper::mapRejectedMedical);
+    public List<allRejectedMedicals> allRejectedMedicals() {
+        String sql = "SELECT * FROM allRejectedMedicals";
+        return jdbcTemplate.query(
+                sql,
+                AdminMapper::mapAllRejectedMedicals
+        );
     }
 
     @Override
-    public void removeDeductionsOfResigned() {
-        String sql = "EXEC dbo.RemoveDeductionsOfResignedEmployees";
+    public List<allEmployeeAttendance> allEmployeeAttendance() {
+        String sql = "SELECT * FROM allEmployeeAttendance";
+        return jdbcTemplate.query(
+                sql,
+                AdminMapper::mapAllEmployeeAttendance
+        );
+    }
+
+    @Override
+    public List<allPerformance> allPerformance() {
+        String sql = "SELECT * FROM allPerformance";
+        return jdbcTemplate.query(
+                sql,
+                AdminMapper::mapAllPerformance
+        );
+    }
+
+    @Override
+    public void Remove_Deductions() {
+        String sql = "EXEC Remove_Deductions";
         jdbcTemplate.update(sql);
     }
 
     @Override
-    public void updateAttendance(UpdateAttendance dto) {
-        String sql = "EXEC dbo.UpdateAttendance ?, ?, ?, ?";
+    public void Add_Holiday(String holiday_name,
+                            java.time.LocalDate from_date,
+                            java.time.LocalDate to_date) {
+        String sql = "EXEC Add_Holiday ?, ?, ?";
         jdbcTemplate.update(
                 sql,
-                dto.getEmpId(),
-                Time.valueOf(dto.getCheckIn()),
-                Time.valueOf(dto.getCheckOut()),
-                dto.getStatus()
+                holiday_name,
+                Date.valueOf(from_date),
+                Date.valueOf(to_date)
         );
     }
 
     @Override
-    public void addHoliday(AddHoliday dto) {
-        String sql = "EXEC dbo.AddOfficialHoliday ?, ?";
-        jdbcTemplate.update(
-                sql,
-                Date.valueOf(dto.getDate()),
-                dto.getDescription()
-        );
-    }
-
-    @Override
-    public void initiateTodayAttendance() {
-        String sql = "EXEC dbo.InitiateTodayAttendance";
+    public void Intitiate_Attendance() {
+        String sql = "EXEC Intitiate_Attendance";
         jdbcTemplate.update(sql);
     }
 
     @Override
-    public List<AdminAttendanceRecord> attendanceYesterday() {
-        String sql = "SELECT * FROM dbo.AttendanceYesterday";
-        return jdbcTemplate.query(sql, AdminMapper::mapAdminAttendance);
+    public void Update_Attendance(Integer Employee_id,
+                                  java.time.LocalTime check_in_time,
+                                  java.time.LocalTime check_out_time) {
+        String sql = "EXEC Update_Attendance ?, ?, ?";
+        jdbcTemplate.update(
+                sql,
+                Employee_id,
+                Time.valueOf(check_in_time),
+                Time.valueOf(check_out_time)
+        );
     }
 
     @Override
-    public List<AdminPerformanceRecord> winterPerformance() {
-        String sql = "SELECT * FROM dbo.WinterSemesterPerformance";
-        return jdbcTemplate.query(sql, AdminMapper::mapAdminPerformance);
-    }
-
-    @Override
-    public void removeHolidayAttendance() {
-        String sql = "EXEC dbo.RemoveHolidayAttendance";
+    public void Remove_Holiday() {
+        String sql = "EXEC Remove_Holiday";
         jdbcTemplate.update(sql);
     }
 
     @Override
-    public void removeDayOff(RemoveDayOff dto) {
-        String sql = "EXEC dbo.RemoveUnattendedDayOff ?, ?";
+    public void Remove_DayOff(Integer Employee_id) {
+        String sql = "EXEC Remove_DayOff ?";
         jdbcTemplate.update(
                 sql,
-                dto.getEmpId(),
-                Date.valueOf(dto.getDate())
+                Employee_id
         );
     }
 
     @Override
-    public void removeLeaveFromAttendance(RemoveLeaveFromAttendance dto) {
-        String sql = "EXEC dbo.RemoveLeaveFromAttendance ?, ?";
+    public void Remove_Approved_Leaves(Integer Employee_id) {
+        String sql = "EXEC Remove_Approved_Leaves ?";
         jdbcTemplate.update(
                 sql,
-                dto.getEmpId(),
-                dto.getRequestId()
+                Employee_id
         );
     }
 
     @Override
-    public void replaceEmployee(ReplaceEmployee dto) {
-        String sql = "EXEC dbo.ReplaceEmployee ?, ?, ?, ?";
+    public void Replace_employee(Integer Emp1_ID,
+                                 Integer Emp2_ID,
+                                 java.time.LocalDate from_date,
+                                 java.time.LocalDate to_date) {
+        String sql = "EXEC Replace_employee ?, ?, ?, ?";
         jdbcTemplate.update(
                 sql,
-                dto.getEmp1Id(),
-                dto.getEmp2Id(),
-                Date.valueOf(dto.getFromDate()),
-                Date.valueOf(dto.getToDate())
+                Emp1_ID,
+                Emp2_ID,
+                Date.valueOf(from_date),
+                Date.valueOf(to_date)
         );
-    }
-
-    @Override
-    public void updateStatuses() {
-        String sql = "EXEC dbo.UpdateEmploymentStatuses";
-        jdbcTemplate.update(sql);
     }
 }

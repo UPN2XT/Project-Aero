@@ -1,59 +1,91 @@
 package com.upn2xt.Aero.Admin.Mapper;
 
 import com.upn2xt.Aero.Admin.Dtos.*;
+
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
 public class AdminMapper {
 
-    public static EmployeeProfile mapProfile(ResultSet rs, int rowNum) throws SQLException {
-        EmployeeProfile dto = new EmployeeProfile();
-        dto.setEmployeeId(rs.getInt("employee_ID"));
-        dto.setFirstName(rs.getString("first_name"));
-        dto.setLastName(rs.getString("last_name"));
-        dto.setEmail(rs.getString("email"));
-        dto.setDepartment(rs.getString("dept_name"));
-        dto.setEmploymentStatus(rs.getString("employment_status"));
-        return dto;
+    public static allEmployeeProfiles mapAllEmployeeProfiles(ResultSet rs, int rowNum) throws SQLException {
+        allEmployeeProfiles p = new allEmployeeProfiles();
+        p.setEmployee_ID(rs.getInt("employee_ID"));
+        p.setFirst_name(rs.getString("first_name"));
+        p.setLast_name(rs.getString("last_name"));
+        p.setGender(rs.getString("gender"));
+        p.setEmail(rs.getString("email"));
+        p.setAddress(rs.getString("address"));
+        p.setYears_of_experience(rs.getInt("years_of_experience"));
+        p.setOfficial_day_off(rs.getString("official_day_off"));
+        p.setType_of_contract(rs.getString("type_of_contract"));
+        p.setEmployment_status(rs.getString("employment_status"));
+        p.setAnnual_balance(rs.getInt("annual_balance"));
+        p.setAccidental_balance(rs.getInt("accidental_balance"));
+        return p;
     }
 
-    public static EmployeeDeptCount mapDeptCount(ResultSet rs, int rowNum) throws SQLException {
-        EmployeeDeptCount dto = new EmployeeDeptCount();
-        dto.setDepartment(rs.getString("department"));
-        dto.setCount(rs.getInt("count"));
-        return dto;
+    public static NoEmployeeDept mapNoEmployeeDept(ResultSet rs, int rowNum) throws SQLException {
+        NoEmployeeDept n = new NoEmployeeDept();
+        n.setDept_name(rs.getString("dept_name"));
+        n.setNum_employees(rs.getInt("num_employees"));
+        return n;
     }
 
-    public static RejectedMedical mapRejectedMedical(ResultSet rs, int rowNum) throws SQLException {
-        RejectedMedical dto = new RejectedMedical();
-        dto.setRequestId(rs.getInt("request_ID"));
-        dto.setEmpId(rs.getInt("emp_ID"));
-        dto.setStartDate(rs.getDate("start_date").toLocalDate());
-        dto.setEndDate(rs.getDate("end_date").toLocalDate());
-        dto.setType(rs.getString("type"));
-        dto.setInsuranceStatus(rs.getBoolean("insurance_status"));
-        dto.setDisabilityDetails(rs.getString("disability_details"));
-        dto.setFinalStatus(rs.getString("final_approval_status"));
-        return dto;
+    public static allRejectedMedicals mapAllRejectedMedicals(ResultSet rs, int rowNum) throws SQLException {
+        allRejectedMedicals m = new allRejectedMedicals();
+
+        m.setRequest_ID(rs.getInt("request_ID"));
+        m.setEmp_ID(rs.getInt("Emp_ID"));
+
+        if (rs.getDate("date_of_request") != null) {
+            m.setDate_of_request(rs.getDate("date_of_request").toLocalDate());
+        }
+        if (rs.getDate("start_date") != null) {
+            m.setStart_date(rs.getDate("start_date").toLocalDate());
+        }
+        if (rs.getDate("end_date") != null) {
+            m.setEnd_date(rs.getDate("end_date").toLocalDate());
+        }
+
+        m.setType(rs.getString("type"));
+        m.setInsurance_status(rs.getBoolean("insurance_status"));
+        m.setDisability_details(rs.getString("disability_details"));
+        m.setFinal_approval_status(rs.getString("final_approval_status"));
+
+        return m;
     }
 
-    public static AdminAttendanceRecord mapAdminAttendance(ResultSet rs, int rowNum) throws SQLException {
-        AdminAttendanceRecord dto = new AdminAttendanceRecord();
-        dto.setEmpId(rs.getInt("emp_ID"));
-        dto.setDate(rs.getDate("date").toLocalDate());
-        dto.setCheckIn(rs.getTime("check_in_time") != null ? rs.getTime("check_in_time").toLocalTime() : null);
-        dto.setCheckOut(rs.getTime("check_out_time") != null ? rs.getTime("check_out_time").toLocalTime() : null);
-        dto.setTotalDuration(rs.getInt("total_duration"));
-        dto.setStatus(rs.getString("status"));
-        return dto;
+    public static allEmployeeAttendance mapAllEmployeeAttendance(ResultSet rs, int rowNum) throws SQLException {
+        allEmployeeAttendance a = new allEmployeeAttendance();
+
+        a.setAttendance_ID(rs.getInt("attendance_ID"));
+
+        if (rs.getDate("date") != null) {
+            a.setDate(rs.getDate("date").toLocalDate());
+        }
+        if (rs.getTime("check_in_time") != null) {
+            a.setCheck_in_time(rs.getTime("check_in_time").toLocalTime());
+        }
+        if (rs.getTime("check_out_time") != null) {
+            a.setCheck_out_time(rs.getTime("check_out_time").toLocalTime());
+        }
+
+        a.setTotal_duration(rs.getInt("total_duration"));
+        a.setStatus(rs.getString("status"));
+        a.setEmp_ID(rs.getInt("emp_ID"));
+
+        return a;
     }
 
-    public static AdminPerformanceRecord mapAdminPerformance(ResultSet rs, int rowNum) throws SQLException {
-        AdminPerformanceRecord dto = new AdminPerformanceRecord();
-        dto.setEmpId(rs.getInt("emp_ID"));
-        dto.setRating(rs.getInt("rating"));
-        dto.setComments(rs.getString("comments"));
-        dto.setSemester(rs.getString("semester"));
-        return dto;
+    public static allPerformance mapAllPerformance(ResultSet rs, int rowNum) throws SQLException {
+        allPerformance p = new allPerformance();
+
+        p.setPerformance_ID(rs.getInt("performance_ID"));
+        p.setRating(rs.getInt("rating"));
+        p.setComments(rs.getString("comments"));
+        p.setSemester(rs.getString("semester"));
+        p.setEmp_ID(rs.getInt("emp_ID"));
+
+        return p;
     }
 }
