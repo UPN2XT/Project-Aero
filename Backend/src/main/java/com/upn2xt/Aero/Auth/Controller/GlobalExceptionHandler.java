@@ -1,7 +1,8 @@
 package com.upn2xt.Aero.Auth.Controller;
 
 import com.upn2xt.Aero.Auth.Dtos.ErrorResponse;
-import io.swagger.annotations.Api;
+// New OpenAPI 3 Import
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -21,7 +22,7 @@ import java.util.stream.Collectors;
  * errors.
  */
 @RestControllerAdvice
-@Api(tags = "Error Handling", description = "Global error handling for database and SQL exceptions")
+@Tag(name = "Error Handling", description = "Global error handling for database and SQL exceptions")
 public class GlobalExceptionHandler {
 
     /**
@@ -29,7 +30,7 @@ public class GlobalExceptionHandler {
      *
      * @param ex The MethodArgumentNotValidException that was thrown
      * @return ResponseEntity containing validation error details with HTTP 400
-     *         status
+     * status
      */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleValidationException(MethodArgumentNotValidException ex) {

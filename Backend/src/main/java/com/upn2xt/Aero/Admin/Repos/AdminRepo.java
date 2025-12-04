@@ -5,7 +5,7 @@ import java.util.List;
 
 public interface AdminRepo {
 
-    List<EmployeeProfile> allProfiles();
+    /*List<EmployeeProfile> allProfiles();
     List<EmployeeDeptCount> deptCounts();
     List<RejectedMedical> rejectedMedicals();
 
@@ -23,5 +23,5 @@ public interface AdminRepo {
     void removeLeaveFromAttendance(RemoveLeaveFromAttendance dto);
 
     void replaceEmployee(ReplaceEmployee dto);
-    void updateStatuses();
+    void updateStatuses();*/
 }

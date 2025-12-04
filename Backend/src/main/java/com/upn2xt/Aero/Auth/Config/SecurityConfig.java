@@ -34,10 +34,20 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests((authz) -> authz
                         .requestMatchers("/api/auth/**").permitAll()
+                        // FIX STARTS HERE
+                        .requestMatchers(
+                                "/v3/api-docs/**",
+                                "/docs",              // The alias you want
+                                "/swagger-ui/**",     // The actual UI resources
+                                "/swagger-ui.html"    // The landing page
+                        ).permitAll()
+                        // FIX ENDS HERE
                         .requestMatchers("/h2-console/**").permitAll()
-                        .anyRequest().permitAll()
+                        .anyRequest().authenticated()
                 )
                 .authenticationProvider(authenticationProvider)
+                .httpBasic(AbstractHttpConfigurer::disable)
+                .formLogin(AbstractHttpConfigurer::disable)
                 .headers(headers -> headers.frameOptions(frame -> frame.disable()).disable())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
@@ -50,7 +60,7 @@ public class SecurityConfig {
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setAllowCredentials(true);
-        
+
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
@@ -64,6 +74,7 @@ public class SecurityConfig {
 
     @Bean
     public UserDetailsService userDetailsService() {
+        // Ensure your User class implements UserDetails, otherwise this lambda will fail at runtime
         return username -> User.builder().id(Integer.parseInt(username)).build();
     }
 
@@ -75,12 +86,8 @@ public class SecurityConfig {
 
     @Bean
     AuthenticationProvider authenticationProvider(UserDetailsService userDetailsService, PasswordEncoder passwordEncoder) {
-
         DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider(userDetailsService);
-
         authProvider.setPasswordEncoder(passwordEncoder);
-
         return authProvider;
     }
-
 }

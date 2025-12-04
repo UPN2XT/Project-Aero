@@ -10,7 +10,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/admin")
 public class AdminController {
-
+/*
     @Autowired
     private AdminRepo adminRepo;
 
@@ -82,5 +82,5 @@ public class AdminController {
     @PostMapping("/update-status")
     public void updateStatuses() {
         adminRepo.updateStatuses();
-    }
+    }*/
 }

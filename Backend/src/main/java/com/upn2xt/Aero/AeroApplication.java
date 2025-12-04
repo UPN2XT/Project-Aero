@@ -15,12 +15,28 @@ public class AeroApplication {
     @Bean
     public CommandLineRunner executeTableCreation(JdbcTemplate jdbcTemplate) {
         return args -> {
+
+            try {
+                // This executes the stored procedure using standard T-SQL syntax
+                jdbcTemplate.execute("EXEC dbo.dropAllTables");
+                System.out.println("✅ dbo.deletesAllTables executed successfully.");
+            } catch (Exception e) {
+                System.err.println("❌ Error executing dbo.createAllTables: " + e.getMessage());
+            }
+
             try {
                 // This executes the stored procedure using standard T-SQL syntax
                 jdbcTemplate.execute("EXEC dbo.createAllTables");
                 System.out.println("✅ dbo.createAllTables executed successfully.");
             } catch (Exception e) {
                 System.err.println("❌ Error executing dbo.createAllTables: " + e.getMessage());
+            }
+
+            try {
+                jdbcTemplate.execute("EXEC dbo.init_values");
+                System.out.println("✅ dbo.init_values executed successfully.");
+            } catch (Exception e) {
+                System.err.println("❌ Error executing dbo.init_values: " + e.getMessage());
             }
         };
     }

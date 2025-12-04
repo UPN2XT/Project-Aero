@@ -14,7 +14,7 @@ import java.util.List;
 @Repository
 public class AdminRepoImp implements AdminRepo {
 
-    @Autowired
+   /* @Autowired
     private JdbcTemplate jdbcTemplate;
 
     @Override
@@ -123,5 +123,5 @@ public class AdminRepoImp implements AdminRepo {
     public void updateStatuses() {
         String sql = "EXEC dbo.UpdateEmploymentStatuses";
         jdbcTemplate.update(sql);
-    }
+    }*/
 }

@@ -6,7 +6,7 @@ import java.sql.SQLException;
 
 public class AdminMapper {
 
-    public static EmployeeProfile mapProfile(ResultSet rs, int rowNum) throws SQLException {
+    /*public static EmployeeProfile mapProfile(ResultSet rs, int rowNum) throws SQLException {
         EmployeeProfile dto = new EmployeeProfile();
         dto.setEmployeeId(rs.getInt("employee_ID"));
         dto.setFirstName(rs.getString("first_name"));
@@ -55,5 +55,5 @@ public class AdminMapper {
         dto.setComments(rs.getString("comments"));
         dto.setSemester(rs.getString("semester"));
         return dto;
-    }
+    }*/
 }

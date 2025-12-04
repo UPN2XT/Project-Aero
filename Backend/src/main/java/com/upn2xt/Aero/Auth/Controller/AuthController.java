@@ -5,16 +5,20 @@ import com.upn2xt.Aero.Auth.Dtos.ErrorResponse;
 import com.upn2xt.Aero.Auth.Dtos.LoginRequest;
 import com.upn2xt.Aero.Auth.Repos.AuthRepo;
 import com.upn2xt.Aero.Auth.Services.JwtService;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
-import io.swagger.annotations.ApiParam;
-import io.swagger.annotations.ApiResponse;
-import io.swagger.annotations.ApiResponses;
+
+// New OpenAPI 3 Imports
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
+
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -25,7 +29,7 @@ import java.time.format.DateTimeFormatter;
 
 @RestController
 @RequestMapping("/api/auth")
-@Api(tags = "Authentication", description = "Authentication endpoints for HR and Employee login")
+@Tag(name = "Authentication", description = "Authentication endpoints for HR and Employee login")
 public class AuthController {
 
     @Autowired
@@ -34,18 +38,26 @@ public class AuthController {
     @Autowired
     private JwtService jwtService;
 
-    @ApiOperation(value = "HR Login", notes = "Authenticates an HR employee using their employee ID and password. " +
-            "Uses HRLoginValidation SQL function which validates credentials against " +
-            "employees in the HR department. Returns a JWT token on successful authentication.", response = String.class)
+    @Operation(
+            summary = "HR Login",
+            description = "Authenticates an HR employee using their employee ID and password. " +
+                    "Uses HRLoginValidation SQL function which validates credentials against " +
+                    "employees in the HR department. Returns a JWT token on successful authentication."
+    )
     @ApiResponses(value = {
-            @ApiResponse(code = 200, message = "Successfully authenticated. Returns JWT token"),
-            @ApiResponse(code = 400, message = "Validation error - Invalid input data", response = ErrorResponse.class),
-            @ApiResponse(code = 401, message = "Invalid credentials - employee ID or password is incorrect", response = ErrorResponse.class),
-            @ApiResponse(code = 500, message = "Database error - SQL exception occurred", response = ErrorResponse.class)
+            @ApiResponse(responseCode = "200", description = "Successfully authenticated. Returns JWT token"),
+            @ApiResponse(responseCode = "400", description = "Validation error - Invalid input data",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Invalid credentials - employee ID or password is incorrect",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "500", description = "Database error - SQL exception occurred",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     @PostMapping("/login/hr")
     public ResponseEntity<?> loginHR(
-            @ApiParam(value = "Login credentials containing employee ID and password", required = true) @Valid @RequestBody LoginRequest loginRequest) {
+            @Parameter(description = "Login credentials containing employee ID and password", required = true)
+            @Valid @RequestBody LoginRequest loginRequest) {
+
         Integer result = authRepo.hrLogin(loginRequest.getId(), loginRequest.getPassword());
 
         if (result == 1) {
@@ -61,18 +73,26 @@ public class AuthController {
         return new ResponseEntity<>(errorResponse, HttpStatus.UNAUTHORIZED);
     }
 
-    @ApiOperation(value = "Employee Login", notes = "Authenticates an employee using their employee ID and password. " +
-            "Uses EmployeeLoginValidation SQL function which validates credentials. " +
-            "Returns a JWT token on successful authentication.", response = String.class)
+    @Operation(
+            summary = "Employee Login",
+            description = "Authenticates an employee using their employee ID and password. " +
+                    "Uses EmployeeLoginValidation SQL function which validates credentials. " +
+                    "Returns a JWT token on successful authentication."
+    )
     @ApiResponses(value = {
-            @ApiResponse(code = 200, message = "Successfully authenticated. Returns JWT token"),
-            @ApiResponse(code = 400, message = "Validation error - Invalid input data", response = ErrorResponse.class),
-            @ApiResponse(code = 401, message = "Invalid credentials - employee ID or password is incorrect", response = ErrorResponse.class),
-            @ApiResponse(code = 500, message = "Database error - SQL exception occurred", response = ErrorResponse.class)
+            @ApiResponse(responseCode = "200", description = "Successfully authenticated. Returns JWT token"),
+            @ApiResponse(responseCode = "400", description = "Validation error - Invalid input data",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Invalid credentials - employee ID or password is incorrect",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "500", description = "Database error - SQL exception occurred",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     @PostMapping("/login/employee")
     public ResponseEntity<?> loginEmployee(
-            @ApiParam(value = "Login credentials containing employee ID and password", required = true) @Valid @RequestBody LoginRequest loginRequest) {
+            @Parameter(description = "Login credentials containing employee ID and password", required = true)
+            @Valid @RequestBody LoginRequest loginRequest) {
+
         Integer result = authRepo.employeeLogin(loginRequest.getId(), loginRequest.getPassword());
 
         if (result == 1) {
@@ -87,5 +107,4 @@ public class AuthController {
                 LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
         return new ResponseEntity<>(errorResponse, HttpStatus.UNAUTHORIZED);
     }
-
 }
