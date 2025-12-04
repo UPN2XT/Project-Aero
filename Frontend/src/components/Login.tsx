@@ -10,15 +10,60 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   
-  // the options to hoose from
   const roles: UserRole[] = ['Admin', 'Academic', 'HR'];
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if(username && password && role) {
-      onLogin(role);
-    } else {
+    
+    if (!username || !password || !role) {
       alert("Please enter credentials (any works)");
+      return;
+    }
+
+    let endpoint = '';
+    
+    if (role === 'HR') {
+        endpoint = '/api/auth/login/hr';
+    } else {
+        endpoint = '/api/auth/login/employee';
+    }
+
+    try {
+        const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                id: Number(username), 
+                password,
+            }),
+        });
+
+        if (response.ok) {
+            const token = await response.text(); 
+
+            if (token && token.length > 10) {
+                localStorage.setItem('jwtToken', token);
+                localStorage.setItem('userRole', role as string);
+                
+                onLogin(role);
+            } else {
+                alert("Login succeeded, but no authorization token received.");
+            }
+        } else {
+            let message = 'Invalid credentials';
+            try {
+                const errorData = await response.json();
+                message = errorData.message || message;
+            } catch (e) {
+                message = `Authentication failed (Status ${response.status})`;
+            }
+            alert(`Login failed: ${message}`);
+        }
+    } catch (error) {
+        alert('A network error occurred. Please check the API server.');
+        console.error('Login API error:', error);
     }
   };
 
