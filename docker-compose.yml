@@ -22,7 +22,8 @@ services:
       start_period: 30s
 
   backend:
-    image: upn2xt/aero:0.1
+    build: ./Backend
+    #image: upn2xt/aero:0.1
     container_name: aero-backend
     depends_on:
       mssql:
