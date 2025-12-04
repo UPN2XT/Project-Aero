@@ -10,77 +10,81 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/admin")
 public class AdminController {
-/*
     @Autowired
     private AdminRepo adminRepo;
 
-    @PostMapping("/profiles")
-    public List<EmployeeProfile> allProfiles() {
-        return adminRepo.allProfiles();
+    @PostMapping("/all-employee-profiles")
+    public List<allEmployeeProfiles> allEmployeeProfiles() {
+        return adminRepo.allEmployeeProfiles();
     }
 
-    @PostMapping("/dept-count")
-    public List<EmployeeDeptCount> deptCount() {
-        return adminRepo.deptCounts();
+    @PostMapping("/employees-per-department")
+    public List<NoEmployeeDept> NoEmployeeDept() {
+        return adminRepo.NoEmployeeDept();
     }
 
     @PostMapping("/rejected-medicals")
-    public List<RejectedMedical> rejectedMedicals() {
-        return adminRepo.rejectedMedicals();
+    public List<allRejectedMedicals> allRejectedMedicals() {
+        return adminRepo.allRejectedMedicals();
     }
 
-    @PostMapping("/remove-resigned-deductions")
-    public void removeDeductions() {
-        adminRepo.removeDeductionsOfResigned();
-    }
-
-    @PostMapping("/update-attendance")
-    public void updateAttendance(@RequestBody UpdateAttendance dto) {
-        adminRepo.updateAttendance(dto);
-    }
-
-    @PostMapping("/add-holiday")
-    public void addHoliday(@RequestBody AddHoliday dto) {
-        adminRepo.addHoliday(dto);
-    }
-
-    @PostMapping("/init-today-attendance")
-    public void initTodayAttendance() {
-        adminRepo.initiateTodayAttendance();
-    }
-
-    @PostMapping("/attendance-yesterday")
-    public List<AdminAttendanceRecord> attendanceYesterday() {
-        return adminRepo.attendanceYesterday();
+    @PostMapping("/yesterday-attendance")
+    public List<allEmployeeAttendance> allEmployeeAttendance() {
+        return adminRepo.allEmployeeAttendance();
     }
 
     @PostMapping("/winter-performance")
-    public List<AdminPerformanceRecord> winterPerformance() {
-        return adminRepo.winterPerformance();
+    public List<allPerformance> allPerformance() {
+        return adminRepo.allPerformance();
     }
 
-    @PostMapping("/remove-holiday-attendance")
-    public void removeHolidayAttendance() {
-        adminRepo.removeHolidayAttendance();
+    @PostMapping("/remove-deductions")
+    public void Remove_Deductions() {
+        adminRepo.Remove_Deductions();
+    }
+
+    @PostMapping("/add-holiday")
+    public void Add_Holiday(@RequestBody Add_Holiday holiday) {
+        adminRepo.Add_Holiday(
+                holiday.getHoliday_name(),
+                holiday.getFrom_date(),
+                holiday.getTo_date());
+    }
+
+    @PostMapping("/initiate-attendance")
+    public void Intitiate_Attendance() {
+        adminRepo.Intitiate_Attendance();
+    }
+
+    @PostMapping("/update-attendance")
+    public void Update_Attendance(@RequestBody UpdateAttendance update) {
+        adminRepo.Update_Attendance(
+                update.getEmployee_id(),
+                update.getCheck_in_time(),
+                update.getCheck_out_time());
+    }
+
+    @PostMapping("/remove-holiday")
+    public void Remove_Holiday() {
+        adminRepo.Remove_Holiday();
     }
 
     @PostMapping("/remove-dayoff")
-    public void removeDayOff(@RequestBody RemoveDayOff dto) {
-        adminRepo.removeDayOff(dto);
+    public void Remove_DayOff(@RequestBody RemoveDayOff request) {
+        adminRepo.Remove_DayOff(request.getEmployee_id());
     }
 
-    @PostMapping("/remove-leave-attendance")
-    public void removeLeaveAttendance(@RequestBody RemoveLeaveFromAttendance dto) {
-        adminRepo.removeLeaveFromAttendance(dto);
+    @PostMapping("/remove-approved-leaves")
+    public void Remove_Approved_Leaves(@RequestBody RemoveApprovedLeaves request) {
+        adminRepo.Remove_Approved_Leaves(request.getEmployee_id());
     }
 
     @PostMapping("/replace-employee")
-    public void replaceEmployee(@RequestBody ReplaceEmployee dto) {
-        adminRepo.replaceEmployee(dto);
+    public void Replace_employee(@RequestBody Replace_employee rep) {
+        adminRepo.Replace_employee(
+                rep.getEmp1_ID(),
+                rep.getEmp2_ID(),
+                rep.getFrom_date(),
+                rep.getTo_date());
     }
-
-    @PostMapping("/update-status")
-    public void updateStatuses() {
-        adminRepo.updateStatuses();
-    }*/
 }
