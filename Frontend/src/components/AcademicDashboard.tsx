@@ -58,6 +58,12 @@ export const AcademicDashboard: React.FC<AcademicDashboardProps> = ({ onLogout }
   const [pendingApprovals, setPendingApprovals] = useState<PendingLeaveApproval[]>([]);
   const [deanReplacementId, setDeanReplacementId] = useState<string>("");
 
+  // Performance Evaluation State
+  const [evalEmployeeId, setEvalEmployeeId] = useState<string>("");
+  const [evalRating, setEvalRating] = useState<number>(3);
+  const [evalComment, setEvalComment] = useState<string>("");
+  const [evalSemester, setEvalSemester] = useState<string>("W26");
+
   // === API Helper ===
   const handleFetch = async (endpoint: string, payload?: any) => {
     try {
@@ -285,6 +291,54 @@ export const AcademicDashboard: React.FC<AcademicDashboardProps> = ({ onLogout }
       setLoading(false);
     }
   };
+
+  // Performance evaluation handler
+  const handleSubmitEvaluation = async () => {
+    if (!evalEmployeeId) {
+      showError("Please enter an Employee ID");
+      return;
+    }
+    if (evalRating < 1 || evalRating > 5) {
+      showError("Rating must be between 1 and 5");
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/employee/dean-hr-evaluation', {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          empId: Number(evalEmployeeId),
+          rating: evalRating,
+          comment: evalComment,
+          sem: evalSemester
+        }),
+      });
+
+      if (response.ok) {
+        showSuccess(`Performance evaluation submitted for Employee #${evalEmployeeId}!`);
+        // Reset form
+        setEvalEmployeeId("");
+        setEvalRating(3);
+        setEvalComment("");
+      } else if (response.status === 401) {
+        setError('Session expired. Please log in again.');
+        onLogout();
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        setError(`Failed to submit evaluation: ${errorData.message || response.statusText}`);
+      }
+    } catch (err) {
+      console.error('Network error submitting evaluation:', err);
+      setError('Network error. Please check your connection.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
 
   // Fetch user profile
   const fetchUserProfile = useCallback(async () => {
@@ -595,137 +649,223 @@ export const AcademicDashboard: React.FC<AcademicDashboardProps> = ({ onLogout }
                 </div>
               )}
 
-              {/* Pending Approvals Section */}
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <h3 className="font-bold text-lg text-white">Pending Leave Approvals</h3>
-                  <button
-                    onClick={fetchPendingApprovals}
-                    className="text-xs bg-cyan-600/20 text-cyan-400 px-3 py-1.5 rounded hover:bg-cyan-600/30 transition"
-                  >
-                    Refresh List
-                  </button>
-                </div>
-
-                {/* Stats Summary */}
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                  <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-700 text-center">
-                    <p className="text-gray-400 text-xs">Pending Annual</p>
-                    <p className="text-xl font-bold text-cyan-400 mt-1">
-                      {pendingApprovals.filter(a => a.type?.toLowerCase().includes('annual')).length}
-                    </p>
+              {/* Two Column Layout */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Left Column: Pending Approvals */}
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <h3 className="font-bold text-lg text-white">Pending Leave Approvals</h3>
+                    <button
+                      onClick={fetchPendingApprovals}
+                      className="text-xs bg-cyan-600/20 text-cyan-400 px-3 py-1.5 rounded hover:bg-cyan-600/30 transition"
+                    >
+                      Refresh List
+                    </button>
                   </div>
-                  <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-700 text-center">
-                    <p className="text-gray-400 text-xs">Pending Unpaid</p>
-                    <p className="text-xl font-bold text-orange-400 mt-1">
-                      {pendingApprovals.filter(a => a.type?.toLowerCase().includes('unpaid')).length}
-                    </p>
+
+                  {/* Stats Summary */}
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-700 text-center">
+                      <p className="text-gray-400 text-xs">Pending Annual</p>
+                      <p className="text-xl font-bold text-cyan-400 mt-1">
+                        {pendingApprovals.filter(a => a.type?.toLowerCase().includes('annual')).length}
+                      </p>
+                    </div>
+                    <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-700 text-center">
+                      <p className="text-gray-400 text-xs">Pending Unpaid</p>
+                      <p className="text-xl font-bold text-orange-400 mt-1">
+                        {pendingApprovals.filter(a => a.type?.toLowerCase().includes('unpaid')).length}
+                      </p>
+                    </div>
                   </div>
-                </div>
 
-                {/* Approvals List */}
-                {pendingApprovals.length === 0 ? (
-                  <div className="text-center py-12 bg-gray-900/30 rounded-lg border border-gray-700">
-                    <div className="text-4xl mb-3">✓</div>
-                    <p className="text-gray-400">No pending approvals</p>
-                    <p className="text-gray-500 text-sm mt-1">All leave requests have been processed</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2">
-                    {pendingApprovals.map((leave) => {
-                      const isAnnual = leave.type?.toLowerCase().includes('annual');
-                      const typeBadgeClass = isAnnual
-                        ? 'bg-cyan-500/20 text-cyan-400'
-                        : 'bg-orange-500/20 text-orange-400';
+                  {/* Approvals List */}
+                  {pendingApprovals.length === 0 ? (
+                    <div className="text-center py-12 bg-gray-900/30 rounded-lg border border-gray-700">
+                      <div className="text-4xl mb-3">✓</div>
+                      <p className="text-gray-400">No pending approvals</p>
+                      <p className="text-gray-500 text-sm mt-1">All leave requests have been processed</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2">
+                      {pendingApprovals.map((leave) => {
+                        const isAnnual = leave.type?.toLowerCase().includes('annual');
+                        const typeBadgeClass = isAnnual
+                          ? 'bg-cyan-500/20 text-cyan-400'
+                          : 'bg-orange-500/20 text-orange-400';
 
-                      return (
-                        <div
-                          key={leave.requestId}
-                          className="bg-gray-900/50 p-4 rounded-lg border border-gray-700 hover:border-gray-600 transition"
-                        >
-                          <div className="flex justify-between items-start mb-3">
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <span className={`text-xs px-2 py-0.5 rounded ${typeBadgeClass}`}>
-                                  {leave.type || 'Leave'}
-                                </span>
-                                <span className="text-gray-500 text-xs">#{leave.requestId}</span>
-                              </div>
-                              <p className="text-white font-medium mt-1">Employee ID: {leave.empId}</p>
-                              <p className="text-gray-400 text-xs mt-1">
-                                Requested: {leave.dateOfRequest || 'N/A'}
-                              </p>
-                            </div>
-                            <span className="text-xs px-2 py-1 rounded bg-yellow-500/20 text-yellow-300">
-                              {leave.status || 'Pending'}
-                            </span>
-                          </div>
-
-                          {/* Only show approval controls if status is Pending */}
-                          {(leave.status?.toLowerCase() === 'pending' || !leave.status) && (
-                            <>
-                              {/* Replacement ID Input for Annual Leave */}
-                              {isAnnual && (
-                                <div className="mb-3">
-                                  <label className="text-xs text-gray-400 block mb-1">
-                                    Replacement Employee ID (optional)
-                                  </label>
-                                  <input
-                                    type="number"
-                                    placeholder="Enter replacement ID..."
-                                    className="w-full bg-gray-800 border border-gray-600 rounded p-2 text-white text-sm focus:border-cyan-500 outline-none"
-                                    onChange={(e) => setDeanReplacementId(e.target.value)}
-                                  />
+                        return (
+                          <div
+                            key={leave.requestId}
+                            className="bg-gray-900/50 p-4 rounded-lg border border-gray-700 hover:border-gray-600 transition"
+                          >
+                            <div className="flex justify-between items-start mb-3">
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <span className={`text-xs px-2 py-0.5 rounded ${typeBadgeClass}`}>
+                                    {leave.type || 'Leave'}
+                                  </span>
+                                  <span className="text-gray-500 text-xs">#{leave.requestId}</span>
                                 </div>
-                              )}
-
-                              {/* Action Button */}
-                              <button
-                                onClick={() => handleDeanApproval(
-                                  leave.requestId,
-                                  leave.type || '',
-                                  deanReplacementId ? Number(deanReplacementId) : undefined
-                                )}
-                                disabled={loading}
-                                className="w-full text-sm bg-green-600 hover:bg-green-500 disabled:bg-green-600/50 disabled:cursor-not-allowed text-white py-2 rounded font-medium transition flex items-center justify-center gap-2"
-                              >
-                                {loading ? (
-                                  <>
-                                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                                    Processing...
-                                  </>
-                                ) : (
-                                  <>
-                                    <span>✓</span> Approve Leave Request
-                                  </>
-                                )}
-                              </button>
-                            </>
-                          )}
-
-                          {/* Show processed status message if not pending */}
-                          {leave.status && leave.status.toLowerCase() !== 'pending' && (
-                            <div className={`text-center py-2 rounded text-sm ${leave.status.toLowerCase() === 'approved'
-                              ? 'bg-green-500/10 text-green-400'
-                              : 'bg-red-500/10 text-red-400'
-                              }`}>
-                              Already {leave.status}
+                                <p className="text-white font-medium mt-1">Employee ID: {leave.empId}</p>
+                                <p className="text-gray-400 text-xs mt-1">
+                                  Requested: {leave.dateOfRequest || 'N/A'}
+                                </p>
+                              </div>
+                              <span className="text-xs px-2 py-1 rounded bg-yellow-500/20 text-yellow-300">
+                                {leave.status || 'Pending'}
+                              </span>
                             </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
 
-                {/* Information Note */}
-                <div className="mt-6 p-4 bg-gray-900/30 rounded-lg border border-gray-700">
-                  <h4 className="text-gray-300 font-medium text-sm mb-2">📋 Dean Approval Guidelines</h4>
-                  <ul className="text-gray-400 text-xs space-y-1">
-                    <li>• <strong className="text-cyan-400">Annual Leave:</strong> Requires HR approval first. You can optionally assign a replacement employee.</li>
-                    <li>• <strong className="text-orange-400">Unpaid Leave:</strong> Employee's annual balance must be exhausted. Maximum 30 days duration.</li>
-                    <li>• Approvals are final and will update the employee's leave records immediately.</li>
-                  </ul>
+                            {/* Only show approval controls if status is Pending */}
+                            {(leave.status?.toLowerCase() === 'pending' || !leave.status) && (
+                              <>
+                                {/* Replacement ID Input for Annual Leave */}
+                                {isAnnual && (
+                                  <div className="mb-3">
+                                    <label className="text-xs text-gray-400 block mb-1">
+                                      Replacement Employee ID (optional)
+                                    </label>
+                                    <input
+                                      type="number"
+                                      placeholder="Enter replacement ID..."
+                                      className="w-full bg-gray-800 border border-gray-600 rounded p-2 text-white text-sm focus:border-cyan-500 outline-none"
+                                      onChange={(e) => setDeanReplacementId(e.target.value)}
+                                    />
+                                  </div>
+                                )}
+
+                                {/* Action Button */}
+                                <button
+                                  onClick={() => handleDeanApproval(
+                                    leave.requestId,
+                                    leave.type || '',
+                                    deanReplacementId ? Number(deanReplacementId) : undefined
+                                  )}
+                                  disabled={loading}
+                                  className="w-full text-sm bg-green-600 hover:bg-green-500 disabled:bg-green-600/50 disabled:cursor-not-allowed text-white py-2 rounded font-medium transition flex items-center justify-center gap-2"
+                                >
+                                  {loading ? (
+                                    <>
+                                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                      Processing...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <span>✓</span> Approve Leave Request
+                                    </>
+                                  )}
+                                </button>
+                              </>
+                            )}
+
+                            {/* Show processed status message if not pending */}
+                            {leave.status && leave.status.toLowerCase() !== 'pending' && (
+                              <div className={`text-center py-2 rounded text-sm ${leave.status.toLowerCase() === 'approved'
+                                ? 'bg-green-500/10 text-green-400'
+                                : 'bg-red-500/10 text-red-400'
+                                }`}>
+                                Already {leave.status}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Information Note */}
+                  <div className="mt-6 p-4 bg-gray-900/30 rounded-lg border border-gray-700">
+                    <h4 className="text-gray-300 font-medium text-sm mb-2">📋 Dean Approval Guidelines</h4>
+                    <ul className="text-gray-400 text-xs space-y-1">
+                      <li>• <strong className="text-cyan-400">Annual Leave:</strong> Requires HR approval first. You can optionally assign a replacement employee.</li>
+                      <li>• <strong className="text-orange-400">Unpaid Leave:</strong> Employee's annual balance must be exhausted. Maximum 30 days duration.</li>
+                      <li>• Approvals are final and will update the employee's leave records immediately.</li>
+                    </ul>
+                  </div>
+                </div>
+
+                {/* Right Column: Performance Evaluation */}
+                <div className="space-y-4">
+                  <div className="p-6 bg-gray-900/50 rounded-lg border border-gray-700">
+                    <h4 className="text-white font-bold text-lg mb-4">📊 Submit Performance Evaluation</h4>
+                    <p className="text-gray-400 text-sm mb-4">Evaluate employee performance for the semester</p>
+
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-xs text-gray-400 block mb-1">Employee ID</label>
+                          <input
+                            type="number"
+                            value={evalEmployeeId}
+                            onChange={(e) => setEvalEmployeeId(e.target.value)}
+                            placeholder="Enter employee ID"
+                            className="w-full bg-gray-800 border border-gray-600 rounded p-2 text-white text-sm focus:border-cyan-500 outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs text-gray-400 block mb-1">Semester</label>
+                          <select
+                            value={evalSemester}
+                            onChange={(e) => setEvalSemester(e.target.value)}
+                            className="w-full bg-gray-800 border border-gray-600 rounded p-2 text-white text-sm focus:border-cyan-500 outline-none"
+                          >
+                            <option value="W26">Winter 2026</option>
+                            <option value="W25">Winter 2025</option>
+                            <option value="W24">Winter 2024</option>
+                            <option value="W23">Winter 2023</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-xs text-gray-400 block mb-1">Rating (1-5)</label>
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="range"
+                            min="1"
+                            max="5"
+                            step="0.5"
+                            value={evalRating}
+                            onChange={(e) => setEvalRating(Number(e.target.value))}
+                            className="flex-1"
+                          />
+                          <span className="text-cyan-400 font-bold text-lg w-12 text-center">{evalRating}</span>
+                        </div>
+                        <div className="flex justify-between text-xs text-gray-500 mt-1">
+                          <span>Poor</span>
+                          <span>Excellent</span>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-xs text-gray-400 block mb-1">Comments</label>
+                        <textarea
+                          value={evalComment}
+                          onChange={(e) => setEvalComment(e.target.value)}
+                          placeholder="Enter performance comments..."
+                          className="w-full bg-gray-800 border border-gray-600 rounded p-2 text-white text-sm focus:border-cyan-500 outline-none h-24 resize-none"
+                        />
+                      </div>
+
+                      <button
+                        onClick={handleSubmitEvaluation}
+                        disabled={loading}
+                        className="w-full text-sm bg-cyan-600 hover:bg-cyan-500 disabled:bg-cyan-600/50 disabled:cursor-not-allowed text-white py-3 rounded-lg font-semibold transition flex items-center justify-center gap-2"
+                      >
+                        {loading ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                            Submitting...
+                          </>
+                        ) : (
+                          <>
+                            <span>✓</span> Submit Evaluation
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
