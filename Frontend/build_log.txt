@@ -1,0 +1,2 @@
+src/components/HRDashboard.tsx(23,10): error TS6133: 'employees' is declared but its value is never read.
+src/components/HRDashboard.tsx(24,10): error TS6133: 'rejectedLeaves' is declared but its value is never read.

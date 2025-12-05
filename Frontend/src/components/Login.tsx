@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import type { UserRole } from '../types';
 
 interface LoginProps {
@@ -6,78 +6,65 @@ interface LoginProps {
 }
 
 export const Login: React.FC<LoginProps> = ({ onLogin }) => {
-  const [role, setRole] = useState<UserRole>('Admin'); 
+  const [role, setRole] = useState<UserRole>('Admin');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  
+
   const roles: UserRole[] = ['Admin', 'Academic', 'HR'];
 
-  const handleAdminEnter = useCallback(() => {
-    const dummyToken = 'abc123';
-    localStorage.setItem('jwtToken', dummyToken);
-    localStorage.setItem('userRole', 'Admin');
-    localStorage.setItem('userId', '999'); 
-
-    onLogin('Admin');
-  }, [onLogin]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (role === 'Admin') {
-      handleAdminEnter();
-      return;
-    }
-    
+
     if (!username || !password || !role) {
-      alert("Please enter credentials (any works)");
+      alert("Please enter credentials");
       return;
     }
 
     let endpoint = '';
-    
-    if (role === 'HR') {
-        endpoint = '/api/auth/login/hr';
+
+    if (role === 'HR' || role === 'Admin') {
+      endpoint = '/api/auth/login/hr';
     } else {
-        endpoint = '/api/auth/login/employee';
+      endpoint = '/api/auth/login/employee';
     }
 
     try {
-        const response = await fetch(endpoint, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                id: Number(username), 
-                password,
-            }),
-        });
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: Number(username),
+          password,
+        }),
+      });
 
-        if (response.ok) {
-            const token = await response.text(); 
+      if (response.ok) {
+        const token = await response.text();
 
-            if (token && token.length > 10) {
-                localStorage.setItem('jwtToken', token);
-                localStorage.setItem('userRole', role as string);
-                localStorage.setItem('userId', username); 
-                
-                onLogin(role);
-            } else {
-                alert("Login succeeded, but no authorization token received.");
-            }
+        if (token && token.length > 10) {
+          localStorage.setItem('jwtToken', token);
+          localStorage.setItem('userRole', role as string);
+          localStorage.setItem('userId', username);
+
+          onLogin(role);
         } else {
-            let message = 'Invalid credentials';
-            try {
-                const errorData = await response.json();
-                message = errorData.message || message;
-            } catch (e) {
-                message = `Authentication failed (Status ${response.status})`;
-            }
-            alert(`Login failed: ${message}`);
+          alert("Login succeeded, but no authorization token received.");
         }
+      } else {
+        let message = 'Invalid credentials';
+        try {
+          const errorData = await response.json();
+          message = errorData.message || message;
+        } catch (e) {
+          message = `Authentication failed (Status ${response.status})`;
+        }
+        alert(`Login failed: ${message}`);
+      }
     } catch (error) {
-        alert('A network error occurred. Please check the API server.');
+      alert('A network error occurred. Please check the API server.');
     }
   };
 
@@ -87,7 +74,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
         <h2 className="text-3xl font-extrabold mb-8 text-center text-white tracking-tight">
           <span className="text-cyan-400">Project</span> Portal
         </h2>
-        
+
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">Select Role</label>
@@ -101,11 +88,10 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                     setUsername('');
                     setPassword('');
                   }}
-                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
-                    role === r 
-                      ? 'bg-cyan-700 text-white shadow-lg' 
-                      : 'text-gray-400 hover:text-white'
-                  }`}
+                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${role === r
+                    ? 'bg-cyan-700 text-white shadow-lg'
+                    : 'text-gray-400 hover:text-white'
+                    }`}
                 >
                   {r}
                 </button>
@@ -113,14 +99,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
             </div>
           </div>
 
-          {role === 'Admin' ? (
-            <button
-              type="submit" 
-              className="w-full bg-gradient-to-r from-green-600 to-green-800 text-white py-3 rounded-xl hover:from-green-500 hover:to-green-700 transition font-bold text-lg shadow-lg mt-8"
-            >
-              Enter Admin Dashboard
-            </button>
-          ) : (
+          {role && /Admin|Academic|HR/.test(role) && (
             <>
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">ID / Username</label>
@@ -129,11 +108,11 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   className="w-full px-5 py-3 bg-gray-900 border border-gray-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 transition"
-                  placeholder={`Enter ${role} ID`}
+                  placeholder={`Enter ${role || 'User'} ID`}
                   required
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">Password</label>
                 <input
@@ -145,7 +124,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                   required
                 />
               </div>
-              
+
               <button
                 type="submit"
                 className="w-full bg-gradient-to-r from-cyan-600 to-cyan-800 text-white py-3 rounded-xl hover:from-cyan-500 hover:to-cyan-700 transition font-bold text-lg shadow-lg"

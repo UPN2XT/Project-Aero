@@ -12,9 +12,14 @@ export const App: React.FC = () => {
   useEffect(() => {
     const storedRole = localStorage.getItem('userRole') as UserRole;
     const storedToken = localStorage.getItem('jwtToken');
-    
+
     if (storedRole && storedToken) {
-      setUserRole(storedRole);
+      if (storedToken === 'abc123') {
+        localStorage.clear();
+        setUserRole(null);
+      } else {
+        setUserRole(storedRole);
+      }
     }
     setLoading(false);
   }, []);
@@ -32,7 +37,7 @@ export const App: React.FC = () => {
         </div>
       );
     }
-    
+
     if (!userRole) {
       return <Login onLogin={setUserRole} />;
     }
@@ -46,7 +51,7 @@ export const App: React.FC = () => {
     if (userRole === 'HR') {
       return <HRDashboard onLogout={handleLogout} />;
     }
-    
+
     return <Login onLogin={setUserRole} />;
   };
 
