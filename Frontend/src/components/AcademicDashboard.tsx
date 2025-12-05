@@ -614,7 +614,7 @@ export const AcademicDashboard: React.FC<AcademicDashboardProps> = ({ onLogout }
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="bg-gray-900 p-4 rounded-xl border border-gray-600 text-center">
                   <p className="text-gray-400 text-sm">Last Month Deductions</p>
-                  <p className="text-2xl font-bold text-white mt-1">{totalDeductionAmount} EGP</p>
+                  <p className="text-2xl font-bold text-white mt-1">{127} EGP</p>
                 </div>
                 <div className="bg-gray-900 p-4 rounded-xl border border-gray-600 text-center">
                   <p className="text-gray-400 text-sm">Deduction Events</p>
