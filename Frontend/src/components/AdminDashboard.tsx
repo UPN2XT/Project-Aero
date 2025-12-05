@@ -610,7 +610,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                   onClick={() => setActiveTab('general')}
                   className={`w-full text-left p-3 rounded-xl transition flex items-center gap-3 ${activeTab === 'general' ? 'bg-cyan-900/50 text-cyan-300 border border-cyan-700/50' : 'hover:bg-gray-700'}`}
                 >
-                  <Settings className="w-4 h-4" /> General Mgmt
+                  <Settings className="w-4 h-4" /> Management
                 </button>
               </div>
             </div>
