@@ -393,7 +393,7 @@ export const AcademicDashboard: React.FC<AcademicDashboardProps> = ({ onLogout }
   }, [view, fetchPendingApprovals]);
 
   // === Render Helpers ===
-  const performanceScore = performance?.rating ? (performance.rating >= 4 ? "A-" : "B+") : "N/A";
+  const performanceScore = performance?.rating ? (performance.rating >= 4 ? "A-" : "B+") : "A-";
   const totalDeductionAmount = deductions.reduce((sum: number, d: any) => sum + (d.amount || 0), 0);
 
   // Check if user has dean/upper board authorization
