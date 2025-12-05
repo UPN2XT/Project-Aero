@@ -56,6 +56,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
   const [yesterdayAttendance, setYesterdayAttendance] = useState<any[]>([]);
   const [showYesterdayModal, setShowYesterdayModal] = useState(false);
 
+  // Performance modal state
+  const [showPerformanceModal, setShowPerformanceModal] = useState(false);
+
   // Remove day off / approved leaves state
   const [removeDayOffEmpId, setRemoveDayOffEmpId] = useState('');
   const [removeApprovedLeavesEmpId, setRemoveApprovedLeavesEmpId] = useState('');
@@ -163,7 +166,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
       if (response.ok) {
         const data: PerformanceRecord[] = await response.json();
         setPerformanceRecords(data);
-        showMessage(`Fetched ${data.length} Winter Performance Records.`);
+        setShowPerformanceModal(true);
       } else if (response.status === 401) {
         showMessage('Session expired. Please log in again.', true);
         onLogout();
@@ -455,11 +458,131 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
     );
   };
 
+  const renderPerformanceModal = () => {
+    if (!showPerformanceModal) return null;
+
+    // Calculate statistics
+    const avgRating = performanceRecords.length > 0
+      ? (performanceRecords.reduce((sum, record) => sum + record.rating, 0) / performanceRecords.length).toFixed(2)
+      : '0.00';
+
+    const getRatingColor = (rating: number) => {
+      if (rating >= 4.5) return 'bg-green-500/20 text-green-300 border-green-500/30';
+      if (rating >= 3.5) return 'bg-blue-500/20 text-blue-300 border-blue-500/30';
+      if (rating >= 2.5) return 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30';
+      if (rating >= 1.5) return 'bg-orange-500/20 text-orange-300 border-orange-500/30';
+      return 'bg-red-500/20 text-red-300 border-red-500/30';
+    };
+
+    const getRatingStars = (rating: number) => {
+      const fullStars = Math.floor(rating);
+      const hasHalfStar = rating % 1 >= 0.5;
+      return (
+        <div className="flex items-center gap-0.5">
+          {[...Array(5)].map((_, i) => (
+            <span key={i} className={`text-lg ${i < fullStars ? 'text-yellow-400' :
+              i === fullStars && hasHalfStar ? 'text-yellow-400/50' :
+                'text-gray-600'
+              }`}>
+              ★
+            </span>
+          ))}
+        </div>
+      );
+    };
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
+        <div className="bg-gray-800 p-6 rounded-xl shadow-2xl w-full max-w-5xl border border-cyan-700/50 max-h-[85vh] overflow-y-auto">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-xl font-bold text-white">Winter Performance Records</h3>
+            <button
+              onClick={() => setShowPerformanceModal(false)}
+              className="text-gray-400 hover:text-white transition"
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+
+          {/* Summary Statistics */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div className="bg-cyan-900/30 p-4 rounded-lg border border-cyan-700/50">
+              <div className="text-sm text-gray-400 mb-1">Total Records</div>
+              <div className="text-2xl font-bold text-cyan-400">{performanceRecords.length}</div>
+            </div>
+            <div className="bg-green-900/30 p-4 rounded-lg border border-green-700/50">
+              <div className="text-sm text-gray-400 mb-1">Average Rating</div>
+              <div className="text-2xl font-bold text-green-400">{avgRating} / 5.0</div>
+            </div>
+            <div className="bg-purple-900/30 p-4 rounded-lg border border-purple-700/50">
+              <div className="text-sm text-gray-400 mb-1">Unique Employees</div>
+              <div className="text-2xl font-bold text-purple-400">
+                {new Set(performanceRecords.map(r => r.emp_ID)).size}
+              </div>
+            </div>
+          </div>
+
+          {performanceRecords.length === 0 ? (
+            <div className="text-center py-8 text-gray-400">No performance records found</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b border-gray-600 text-gray-400">
+                    <th className="p-3">Performance ID</th>
+                    <th className="p-3">Employee ID</th>
+                    <th className="p-3">Semester</th>
+                    <th className="p-3">Rating</th>
+                    <th className="p-3">Stars</th>
+                    <th className="p-3">Comments</th>
+                  </tr>
+                </thead>
+                <tbody className="text-gray-200">
+                  {performanceRecords.map((record) => (
+                    <tr key={record.performance_ID} className="border-b border-gray-700/50 hover:bg-gray-700/30 transition">
+                      <td className="p-3">{record.performance_ID}</td>
+                      <td className="p-3 font-medium">{record.emp_ID}</td>
+                      <td className="p-3">
+                        <span className="px-2 py-1 rounded text-xs bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                          {record.semester}
+                        </span>
+                      </td>
+                      <td className="p-3">
+                        <span className={`px-3 py-1 rounded-lg text-sm font-bold border ${getRatingColor(record.rating)}`}>
+                          {record.rating.toFixed(1)}
+                        </span>
+                      </td>
+                      <td className="p-3">
+                        {getRatingStars(record.rating)}
+                      </td>
+                      <td className="p-3 max-w-xs truncate" title={record.comments}>
+                        {record.comments || 'No comments'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          <div className="flex justify-end mt-6">
+            <button
+              onClick={() => setShowPerformanceModal(false)}
+              className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-white transition"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-950 p-6 text-gray-100">
       {renderAttendanceModal()}
       {renderYesterdayModal()}
+      {renderPerformanceModal()}
       <div className="max-w-7xl mx-auto">
         <div className="flex justify-between items-center mb-8 bg-gray-800/50 p-4 rounded-2xl border border-gray-700 backdrop-blur-md">
           <h1 className="text-2xl font-bold text-white"><span className="text-cyan-400">Admin</span> Dashboard</h1>
@@ -576,7 +699,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="p-5 bg-gray-900 rounded-xl border border-gray-600">
                     <h4 className="text-cyan-400 font-bold mb-2">Daily Operations</h4>
-                    <button onClick={handleInitiateAttendance} className="w-full mb-2 bg-cyan-700 hover:bg-cyan-600 text-white py-2 rounded transition">
+                    <button onClick={handleInitiateAttendance} className="w-full mb-3 bg-cyan-700 hover:bg-cyan-600 text-white py-2 rounded transition">
                       Initiate Today's Records
                     </button>
                     <button
@@ -584,7 +707,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                         setEmployeeIdToUpdate(1);
                         setIsAttendanceModalOpen(true);
                       }}
-                      className="w-full bg-gray-700 hover:bg-gray-600 text-white py-2 rounded transition"
+                      className="w-full mb-3 bg-gray-700 hover:bg-gray-600 text-white py-2 rounded transition"
                     >
                       Update Employee Record (Manual)
                     </button>
