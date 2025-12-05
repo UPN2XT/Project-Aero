@@ -50,7 +50,7 @@ export const App: React.FC = () => {
       return <AcademicDashboard onLogout={handleLogout} />;
     }
     if (userRole === 'HR') {
-      return <HRDashboard onLogout={handleLogout} />;
+      return <HRDashboard onLogout={handleLogout} onSwitchRole={setUserRole} />;
     }
 
     return <Login onLogin={setUserRole} />;

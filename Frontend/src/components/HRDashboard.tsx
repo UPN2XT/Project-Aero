@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { showSuccess } from '../utils/toast';
+import type { UserRole } from '../types';
 
 // Types matching the backend HR DTOs
 interface ManagedEmployee {
@@ -19,6 +20,7 @@ type HRTab = 'employees' | 'approvals' | 'deductions' | 'payroll';
 
 interface HRDashboardProps {
   onLogout: () => void;
+  onSwitchRole: (role: UserRole) => void;
 }
 
 const API_BASE_URL = ''; // your backend URL
@@ -34,7 +36,7 @@ const getAuthHeaders = (): HeadersInit => {
   };
 };
 
-export const HRDashboard: React.FC<HRDashboardProps> = ({ onLogout }) => {
+export const HRDashboard: React.FC<HRDashboardProps> = ({ onLogout, onSwitchRole }) => {
   const [activeTab, setActiveTab] = useState<HRTab>('employees');
   const [employees, setEmployees] = useState<ManagedEmployee[]>([]);
   const [approvals, setApprovals] = useState<LeaveApproval[]>([]);
@@ -408,12 +410,23 @@ export const HRDashboard: React.FC<HRDashboardProps> = ({ onLogout }) => {
         <h1 className="text-3xl font-bold">
           <span className="text-cyan-400">HR</span> Dashboard
         </h1>
-        <button
-          onClick={onLogout}
-          className="px-4 py-2 bg-red-600 hover:bg-red-500 rounded-lg text-white font-semibold transition"
-        >
-          Logout
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => {
+              localStorage.setItem('userRole', 'Academic');
+              onSwitchRole('Academic');
+            }}
+            className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 rounded-lg text-white font-semibold transition flex items-center gap-2"
+          >
+            <span>🎓</span> Switch to Academic Portal
+          </button>
+          <button
+            onClick={onLogout}
+            className="px-4 py-2 bg-red-600 hover:bg-red-500 rounded-lg text-white font-semibold transition"
+          >
+            Logout
+          </button>
+        </div>
       </div>
 
       {/* Error Banner */}
