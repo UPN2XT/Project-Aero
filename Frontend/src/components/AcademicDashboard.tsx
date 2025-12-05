@@ -195,33 +195,24 @@ export const AcademicDashboard: React.FC<AcademicDashboardProps> = ({ onLogout }
     if (data) setLeaveStatus(data);
   };
 
-  // Fetch pending approvals - uses employee status-leaves endpoint
+  // Fetch pending approvals from HR API (Dean/Upper Board uses same endpoint)
   const fetchPendingApprovals = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch('/api/employee/status-leaves', {
+      const response = await fetch('/api/hr/approvals/get-all', {
         method: 'POST',
         headers: getAuthHeaders(),
-        body: JSON.stringify({ employee_ID: USER_ID }),
       });
 
       if (response.ok) {
-        const data: any[] = await response.json();
-        // Filter only pending Annual and Unpaid leaves that need dean approval
+        const data: PendingLeaveApproval[] = await response.json();
+        // Filter only Annual and Unpaid leaves (Dean can only approve these)
         const deanApprovals = data.filter(
           (leave) =>
-            (leave.type?.toLowerCase().includes('annual') ||
-              leave.type?.toLowerCase().includes('unpaid')) &&
-            (leave.finalApprovalStatus?.toLowerCase() === 'pending' ||
-              leave.status?.toLowerCase() === 'pending')
-        ).map((leave) => ({
-          requestId: leave.requestId || leave.request_ID,
-          empId: leave.empId || leave.emp_ID || USER_ID,
-          type: leave.type,
-          dateOfRequest: leave.dateOfRequest || leave.date_of_request,
-          status: leave.finalApprovalStatus || leave.status || 'Pending'
-        }));
+            leave.type?.toLowerCase().includes('annual') ||
+            leave.type?.toLowerCase().includes('unpaid')
+        );
         setPendingApprovals(deanApprovals);
       } else if (response.status === 401) {
         setError('Session expired. Please log in again.');
