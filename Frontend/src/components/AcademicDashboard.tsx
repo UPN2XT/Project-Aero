@@ -21,6 +21,7 @@ interface PendingLeaveApproval {
 const USER_ID = Number(localStorage.getItem("userId")) || 1;
 const CURRENT_SEMESTER = "W26";
 
+
 // Auth headers helper
 const getAuthHeaders = (): HeadersInit => {
   const token = localStorage.getItem('jwtToken');
@@ -788,14 +789,6 @@ export const AcademicDashboard: React.FC<AcademicDashboardProps> = ({ onLogout }
                   )}
 
                   {/* Information Note */}
-                  <div className="mt-6 p-4 bg-gray-900/30 rounded-lg border border-gray-700">
-                    <h4 className="text-gray-300 font-medium text-sm mb-2">📋 Dean Approval Guidelines</h4>
-                    <ul className="text-gray-400 text-xs space-y-1">
-                      <li>• <strong className="text-cyan-400">Annual Leave:</strong> Requires HR approval first. You can optionally assign a replacement employee.</li>
-                      <li>• <strong className="text-orange-400">Unpaid Leave:</strong> Employee's annual balance must be exhausted. Maximum 30 days duration.</li>
-                      <li>• Approvals are final and will update the employee's leave records immediately.</li>
-                    </ul>
-                  </div>
                 </div>
 
                 {/* Right Column: Performance Evaluation */}
