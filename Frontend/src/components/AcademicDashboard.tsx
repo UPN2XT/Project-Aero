@@ -13,8 +13,10 @@ const CURRENT_SEMESTER = 'W26';
 
 export const AcademicDashboard: React.FC<AcademicDashboardProps> = ({ onLogout }) => {
   const [view, setView] = useState<AcademicView>('leaves');
+  const [replacementIdInput, setReplacementIdInput] = useState('');
+  const [selectedLeaveType, setSelectedLeaveType] = useState('Annual Leave');
   
-  const [leaveStatus, setLeaveStatus] = useState<any[]>(MOCK_LEAVES);
+  const [leaveStatus, setLeaveStatus] = useState<any[]>([]);
   const [performance, setPerformance] = useState<any>({});
   const [attendance, setAttendance] = useState<any[]>([]);
   const [deductions, setDeductions] = useState<any[]>([]);
@@ -32,6 +34,11 @@ export const AcademicDashboard: React.FC<AcademicDashboardProps> = ({ onLogout }
         return null;
       }
       
+      const contentType = response.headers.get('content-type');
+      if (response.status === 200 && (!contentType || !contentType.includes('application/json'))) {
+          return { success: true }; 
+      }
+      
       const data = await response.json();
       return data;
       
@@ -45,16 +52,23 @@ export const AcademicDashboard: React.FC<AcademicDashboardProps> = ({ onLogout }
   const handleApply = async (e: React.FormEvent) => {
     e.preventDefault();
     const form = e.currentTarget;
-    const leaveType = (form.querySelector('select') as HTMLSelectElement)?.value || 'Annual Leave';
+    const leaveType = selectedLeaveType;
     const startDate = (form.querySelector('input[name="startDate"]') as HTMLInputElement)?.value;
     const endDate = (form.querySelector('input[name="endDate"]') as HTMLInputElement)?.value;
+    const replacementId = replacementIdInput;
 
     let endpoint = '';
     const payload: any = { start: startDate, end: endDate };
 
+    const requiresReplacement = leaveType.includes('Annual') || leaveType.includes('Compensation');
+    if (requiresReplacement && (!replacementId || Number(replacementId) <= 0)) {
+        alert(`${leaveType} requires a valid Replacement Employee ID (positive integer).`);
+        return;
+    }
+
     if (leaveType.includes('Annual')) {
         endpoint = '/employee/submit/annual';
-        payload.replacementID = 0;
+        payload.replacementID = Number(replacementId);
     } else if (leaveType.includes('Accidental')) {
         endpoint = '/employee/submit/accidental';
         payload.empId = USER_ID;
@@ -72,8 +86,8 @@ export const AcademicDashboard: React.FC<AcademicDashboardProps> = ({ onLogout }
         endpoint = '/employee/submit/compensation';
         payload.compdate = startDate;
         payload.reason = 'Extra hours worked';
-        payload.orgianlday = '2025-12-01';
-        payload.replacementId = 0;
+        payload.orgianlday = endDate;
+        payload.replacementId = Number(replacementId);
         delete payload.start;
         delete payload.end;
     }
@@ -82,7 +96,12 @@ export const AcademicDashboard: React.FC<AcademicDashboardProps> = ({ onLogout }
         const result = await handleFetch(endpoint, payload);
         if (result) {
              alert(`${leaveType} application submitted for approval.`);
+             
+             // FIX: Add delay to allow database to synchronize submission
+             await new Promise(resolve => setTimeout(resolve, 500)); 
+             
              fetchLeavesStatus();
+             setReplacementIdInput('');
         }
     }
   };
@@ -173,7 +192,12 @@ export const AcademicDashboard: React.FC<AcademicDashboardProps> = ({ onLogout }
                  <form onSubmit={handleApply} className="space-y-4">
                    <div>
                      <label className="text-sm text-gray-400">Type</label>
-                     <select className="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white mt-1">
+                     <select 
+                        name="leaveType" 
+                        value={selectedLeaveType}
+                        onChange={(e) => setSelectedLeaveType(e.target.value)}
+                        className="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white mt-1"
+                     >
                        <option>Annual Leave</option>
                        <option>Accidental Leave</option>
                        <option>Medical Leave</option>
@@ -191,6 +215,22 @@ export const AcademicDashboard: React.FC<AcademicDashboardProps> = ({ onLogout }
                           <input type="date" name="endDate" className="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white mt-1" required />
                       </div>
                    </div>
+                   
+                   {(selectedLeaveType.includes('Annual') || selectedLeaveType.includes('Compensation')) && (
+                       <div>
+                           <label className="text-sm text-gray-400">Replacement Employee ID</label>
+                           <input 
+                              type="number" 
+                              name="replacementId"
+                              value={replacementIdInput}
+                              onChange={(e) => setReplacementIdInput(e.target.value)}
+                              placeholder="e.g., 101"
+                              className="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white mt-1" 
+                              required={selectedLeaveType.includes('Annual')}
+                            />
+                       </div>
+                   )}
+                   
                    <button type="submit" className="w-full bg-cyan-700 hover:bg-cyan-600 text-white py-2 rounded font-semibold shadow-lg">Submit Request</button>
                  </form>
                </div>
