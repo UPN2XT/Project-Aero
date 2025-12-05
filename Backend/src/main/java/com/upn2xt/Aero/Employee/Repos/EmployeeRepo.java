@@ -22,6 +22,7 @@ public interface EmployeeRepo {
     void Dean_andHR_Evaluation(Eval eval);
     List<LeaveStatus> Status_leaves(Integer empId);
     List<Employee> getEmployeesManged(Integer empId);
+    Me getMe(Integer empId);
 
 
 

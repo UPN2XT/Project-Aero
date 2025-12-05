@@ -26,8 +26,8 @@ public class AdminMapper {
 
     public static NoEmployeeDept mapNoEmployeeDept(ResultSet rs, int rowNum) throws SQLException {
         NoEmployeeDept n = new NoEmployeeDept();
-        n.setDept_name(rs.getString("dept_name"));
-        n.setNum_employees(rs.getInt("num_employees"));
+        n.setDept_name(rs.getString("Department"));
+        n.setNum_employees(rs.getInt("Number of Employees"));
         return n;
     }
 

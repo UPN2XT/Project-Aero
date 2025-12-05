@@ -9,21 +9,21 @@ public class EmployeeMapper {
 
     public static Attendance mapAttendance(ResultSet rs, int rowNum) throws SQLException {
 
-            Attendance attendance = new Attendance();
-            attendance.setAttendanceId(rs.getInt("attendance_ID"));
-            if (rs.getDate("date") != null) {
-                attendance.setDate(rs.getDate("date").toLocalDate());
-            }
-            if (rs.getTime("check_in_time") != null) {
-                attendance.setCheckInTime(rs.getTime("check_in_time").toLocalTime());
-            }
-            if (rs.getTime("check_out_time") != null) {
-                attendance.setCheckOutTime(rs.getTime("check_out_time").toLocalTime());
-            }
-            attendance.setTotalDuration(rs.getInt("total_duration"));
-            attendance.setStatus(rs.getString("status"));
-            attendance.setEmpId(rs.getInt("emp_ID"));
-            return attendance;
+        Attendance attendance = new Attendance();
+        attendance.setAttendanceId(rs.getInt("attendance_ID"));
+        if (rs.getDate("date") != null) {
+            attendance.setDate(rs.getDate("date").toLocalDate());
+        }
+        if (rs.getTime("check_in_time") != null) {
+            attendance.setCheckInTime(rs.getTime("check_in_time").toLocalTime());
+        }
+        if (rs.getTime("check_out_time") != null) {
+            attendance.setCheckOutTime(rs.getTime("check_out_time").toLocalTime());
+        }
+        attendance.setTotalDuration(rs.getInt("total_duration"));
+        attendance.setStatus(rs.getString("status"));
+        attendance.setEmpId(rs.getInt("emp_ID"));
+        return attendance;
 
     }
 
@@ -41,13 +41,13 @@ public class EmployeeMapper {
         PayRoll payroll = new PayRoll();
         payroll.setID(rs.getInt("payroll_ID"));
         payroll.setEmpID(rs.getInt("empID"));
-        if(payroll.getPaymentDate() != null) {
+        if (payroll.getPaymentDate() != null) {
             payroll.setPaymentDate(rs.getDate("paymentDate").toLocalDate());
         }
-        if(payroll.getFrom() != null) {
+        if (payroll.getFrom() != null) {
             payroll.setPaymentDate(rs.getDate("from").toLocalDate());
         }
-        if(payroll.getTo() != null) {
+        if (payroll.getTo() != null) {
             payroll.setPaymentDate(rs.getDate("to").toLocalDate());
         }
         payroll.setFinalamount(rs.getInt("finalamount"));
@@ -57,7 +57,7 @@ public class EmployeeMapper {
         return payroll;
     }
 
-    public static Deduction mapDeduction(ResultSet rs, int rowNum) throws SQLException{
+    public static Deduction mapDeduction(ResultSet rs, int rowNum) throws SQLException {
         Deduction deduction = new Deduction();
         deduction.setDeductionID(rs.getInt("deductionID"));
         deduction.setEmpID(rs.getInt("empID"));
@@ -84,4 +84,10 @@ public class EmployeeMapper {
         return leaveStatus;
     }
 
+    public static Me mapMe(ResultSet rs, int rowNum) throws SQLException {
+        return Me.builder()
+                .name(rs.getString("name"))
+                .role(rs.getString("role"))
+                .build();
+    }
 }

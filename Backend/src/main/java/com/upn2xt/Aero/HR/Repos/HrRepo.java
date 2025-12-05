@@ -26,4 +26,6 @@ public interface HrRepo {
 
     List<Employee> getEmployeesManaged(Integer hr_id);
 
+
+
 }

@@ -17,10 +17,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
 import java.util.List;
@@ -241,5 +238,17 @@ public class EmployeeController {
         @PostMapping("/get-managed-employees")
         public List<Employee> getEmployeesManged(Principal p) {
                 return employeeRepo.getEmployeesManged(Integer.parseInt(p.getName()));
+        }
+
+        @PostMapping("/me")
+        @Operation(summary = "Get My Profile", description = "Retrieves the authenticated employee's"
+                        + " profile information including name and role.")
+        @ApiResponses(value = {
+                        @ApiResponse(responseCode = "200", description = "Successfully retrieved employee profile", content = @Content(schema = @Schema(implementation = Me.class))),
+                        @ApiResponse(responseCode = "401", description = "Unauthorized - JWT token missing or invalid"),
+                        @ApiResponse(responseCode = "500", description = "Database error - SQL exception occurred", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+        })
+        public Me getMe(Principal p) {
+                return employeeRepo.getMe(Integer.parseInt(p.getName()));
         }
 }

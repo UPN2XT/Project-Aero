@@ -147,4 +147,18 @@ public class EmployeeRepoImp implements EmployeeRepo {
                                 empId);
         }
 
+    @Override
+    public Me getMe(Integer empId) {
+        String sql = "SELECT TOP 1 first_name + ' ' + last_name AS 'name', er.role_name AS 'role' " +
+                "FROM Employee " +
+                "INNER JOIN Employee_Role er ON er.emp_ID = employee_id " +
+                "INNER JOIN Role r ON r.role_name = er.role_name " +
+                "WHERE employee_id = ? " +
+                "ORDER BY [rank]";
+        return jdbcTemplate.queryForObject(
+                sql,
+                EmployeeMapper::mapMe,
+                empId);
+    }
+
 }
