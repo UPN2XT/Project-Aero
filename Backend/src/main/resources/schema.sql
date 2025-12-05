@@ -3105,3 +3105,4 @@ insert into Employee_Approve_Leave (Emp1_ID,leave_ID,status)
 values (5,20,'pending')
 ------------------------------------------------------
 GO
+

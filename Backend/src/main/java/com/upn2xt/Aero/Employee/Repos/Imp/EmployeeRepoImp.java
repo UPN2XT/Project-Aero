@@ -47,7 +47,7 @@ public class EmployeeRepoImp implements EmployeeRepo {
         }
 
         public List<Deduction> Deductions_Attendance(Integer empID, Integer month) {
-                String sql = "SELECT * FROM dbo.Deductions(?,?)";
+                String sql = "SELECT * FROM dbo.Deductions_Attendance(?,?)";
                 return jdbcTemplate.query(sql, EmployeeMapper::mapDeduction, empID, month);
         }
 
@@ -138,8 +138,8 @@ public class EmployeeRepoImp implements EmployeeRepo {
         @Override
         public List<Employee> getEmployeesManged(Integer empId) {
                 String sql = "SELECT e1.employee_id, e1.first_name + ' ' + e1.last_name AS name " +
-                                "FROM Employees e1 " +
-                                "JOIN Employees e2 ON e1.dept_name = e2.dept_name " +
+                                "FROM Employee e1 " +
+                                "JOIN Employee e2 ON e1.dept_name = e2.dept_name " +
                                 "WHERE e2.employee_id = ? AND e1.employee_id <> e2.employee_id";
                 return jdbcTemplate.query(
                                 sql,
