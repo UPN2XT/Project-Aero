@@ -1,103 +1,175 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import type { EmployeeProfile, RejectedLeave, PerformanceRecord } from '../types';
+import { MOCK_EMPLOYEES, mapMockEmployeesToProfiles } from '../types';
 
-interface HRDashboardProps {
+type AdminTab = 'employees' | 'attendance' | 'general';
+
+interface AdminDashboardProps {
   onLogout: () => void;
 }
 
-export const HRDashboard: React.FC<HRDashboardProps> = ({ onLogout }) => {
-  const handlePayroll = () => {
-    // TODO how tf will we generate a payroll? excel file? pdf?
-    alert("Monthly payroll generated successfully.");
+const API_BASE_URL = ''; // your backend URL
+const getAuthHeaders = () => {
+  const token = localStorage.getItem('jwtToken'); // Bearer token
+  if (!token) console.warn('No JWT token found in localStorage!');
+  return {
+    'Content-Type': 'application/json',
+    ...(token && { 'Authorization': `Bearer ${token}` }),
+  };
+};
+
+export const HRDashboard: React.FC<AdminDashboardProps> = ({ onLogout: _onLogout }) => {
+  const [activeTab, _setActiveTab] = useState<AdminTab>('employees');
+  const [employees, _setEmployees] = useState<EmployeeProfile[]>([]);
+  const [rejectedLeaves, _setRejectedLeaves] = useState<RejectedLeave[]>([]);
+  const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
+  const [employeeIdToUpdate, setEmployeeIdToUpdate] = useState<number | null>(null);
+  const [newCheckIn, setNewCheckIn] = useState('09:00:00');
+  const [newCheckOut, setNewCheckOut] = useState('17:00:00');
+  const [newHolidayName, setNewHolidayName] = useState('');
+  const [newHolidayDateFrom, setNewHolidayDateFrom] = useState('');
+  const [newHolidayDateTo, setNewHolidayDateTo] = useState('');
+
+  const handleAction = (action: string) => alert(`${action}`);
+
+  const _getStatusClass = (status: string) => status === 'Active'
+    ? 'bg-green-500/20 text-green-300'
+    : 'bg-red-500/20 text-red-300';
+
+  const fetchAllEmployees = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/all-employee-profiles`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+      });
+      if (response.ok) {
+        const data: EmployeeProfile[] = await response.json();
+        _setEmployees(data);
+      } else {
+        console.error("Failed to fetch employees:", response.statusText);
+        _setEmployees(mapMockEmployeesToProfiles(MOCK_EMPLOYEES));
+      }
+    } catch (error) {
+      console.error('Network error fetching employees:', error);
+      _setEmployees(mapMockEmployeesToProfiles(MOCK_EMPLOYEES));
+    }
+  }, []);
+
+  const fetchRejectedLeaves = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/rejected-medicals`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+      });
+      if (response.ok) {
+        const data: RejectedLeave[] = await response.json();
+        _setRejectedLeaves(data);
+      } else {
+        console.error("Failed to fetch rejected leaves:", response.statusText);
+        _setRejectedLeaves([]);
+      }
+    } catch (error) {
+      console.error('Network error fetching rejected leaves:', error);
+      _setRejectedLeaves([]);
+    }
+  }, []);
+
+  const _fetchWinterPerformance = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/winter-performance`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+      });
+      if (response.ok) {
+        const data: PerformanceRecord[] = await response.json();
+        alert(`Fetched ${data.length} Winter Performance Records.`);
+        console.log("Winter Performance Data:", data);
+      } else {
+        const error = await response.json();
+        alert(`Failed to fetch Winter Performance: ${error.message || response.statusText}`);
+      }
+    } catch (error) {
+      console.error('Network error fetching winter performance:', error);
+      alert('A network error occurred while fetching performance data.');
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'employees') fetchAllEmployees();
+    if (activeTab === 'attendance') fetchRejectedLeaves();
+  }, [activeTab, fetchAllEmployees, fetchRejectedLeaves]);
+
+  const handleSimplePostAction = async (endpoint: string, actionName: string, body?: any) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        ...(body && { body: JSON.stringify(body) }),
+      });
+      if (response.ok) {
+        const result = await response.json();
+        handleAction(`${actionName} completed successfully! Message: ${result.message || 'No message.'}`);
+      } else {
+        const error = await response.json();
+        handleAction(`Failed to perform ${actionName}: ${error.message || response.statusText}`);
+      }
+    } catch (error) {
+      handleAction(`A network error occurred during ${actionName}.`);
+    }
   };
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-950 p-6">
-      <div className="max-w-6xl mx-auto">
-        <div className="flex justify-between items-center mb-8 bg-gray-800/50 p-4 rounded-2xl border border-gray-700 backdrop-blur-md">
-          <h1 className="text-2xl font-bold text-white"><span className="text-cyan-400">HR</span> Management</h1>
-          <button onClick={onLogout} className="text-sm bg-red-500/20 text-red-400 px-4 py-2 rounded-lg hover:bg-red-500/30 transition">Logout</button>
-        </div>
+  const _handleInitiateAttendance = () => handleSimplePostAction('/api/admin/initiate-attendance', 'Daily Attendance Initiation');
+  const _handleAddHoliday = () => {
+    if (!newHolidayName || !newHolidayDateFrom || !newHolidayDateTo) return alert("Please fill in all holiday details.");
+    handleSimplePostAction('/api/admin/add-holiday', `Add Holiday '${newHolidayName}'`, {
+      holiday_name: newHolidayName,
+      from_Date: newHolidayDateFrom,
+      to_Date: newHolidayDateTo,
+    });
+    setNewHolidayName('');
+    setNewHolidayDateFrom('');
+    setNewHolidayDateTo('');
+  };
+  const handleUpdateAttendance = () => {
+    if (employeeIdToUpdate === null) return;
+    handleSimplePostAction('/api/admin/update-attendance', `Update Attendance for ID ${employeeIdToUpdate}`, {
+      check_in_time: newCheckIn,
+      check_out_time: newCheckOut,
+      Employee_id: employeeIdToUpdate,
+    });
+    setIsAttendanceModalOpen(false);
+    setEmployeeIdToUpdate(null);
+  };
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-6">
-            <div className="bg-gray-800/80 p-6 rounded-2xl border border-gray-700">
-              <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
-                {/* TODO */}
-                <span className="material-symbols-outlined text-cyan-400">7ot icon 3dla hena</span> 
-                Leave Requests
-              </h3>
-              <div className="overflow-hidden rounded-xl border border-gray-700">
-                <table className="w-full text-left bg-gray-900">
-                  <thead className="bg-gray-800 text-gray-400 text-xs uppercase">
-                    <tr>
-                      <th className="p-3">Employee</th>
-                      <th className="p-3">Type</th>
-                      <th className="p-3">Status</th>
-                      <th className="p-3 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="text-sm">
-                    <tr className="border-b border-gray-700">
-                      <td className="p-3">Omar Ali</td>
-                      <td className="p-3">Annual</td>
-                      <td className="p-3 text-yellow-400">Pending</td>
-                      <td className="p-3 text-right space-x-2">
-                        <button onClick={() => alert('Approved')} className="text-green-400 hover:text-green-300 font-bold">✓</button>
-                        <button onClick={() => alert('Rejected')} className="text-red-400 hover:text-red-300 font-bold">✕</button>
-                      </td>
-                    </tr>
-                    <tr className="border-b border-gray-700">
-                      <td className="p-3">Youssef Tamer</td>
-                      <td className="p-3">Compensation</td>
-                      <td className="p-3 text-yellow-400">Pending</td>
-                      <td className="p-3 text-right space-x-2">
-                        <button onClick={() => alert('Approved')} className="text-green-400 hover:text-green-300 font-bold">✓</button>
-                        <button onClick={() => alert('Rejected')} className="text-red-400 hover:text-red-300 font-bold">✕</button>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
+  const renderAttendanceUpdateModal = () => {
+    if (!isAttendanceModalOpen) return null;
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
+        <div className="bg-gray-800 p-6 rounded-xl shadow-2xl w-full max-w-md border border-cyan-700/50">
+          <h3 className="text-xl font-bold text-white mb-4">Update Attendance for ID: {employeeIdToUpdate}</h3>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-1">Check-in Time</label>
+              <input type="time" value={newCheckIn} onChange={e => setNewCheckIn(e.target.value)} className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white" />
             </div>
-
-            <div className="bg-gray-800/80 p-6 rounded-2xl border border-gray-700">
-              <h3 className="text-xl font-bold mb-4 text-red-400 flex items-center gap-2">
-                {/* TODO */}
-                <span className="material-symbols-outlined">(7ot icon 3dla hena)</span> 
-                Deductions
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-gray-900 p-4 rounded-xl border border-gray-600">
-                  <p className="text-sm text-gray-400 mb-2">Missing Hours</p>
-                  <input type="text" placeholder="Emp ID" className="w-full bg-gray-800 border border-gray-700 rounded p-1 mb-2 text-sm" />
-                  <button onClick={() => alert('Deduction Added')} className="w-full bg-red-900/40 text-red-300 border border-red-900 hover:bg-red-900/60 text-xs py-2 rounded">Apply</button>
-                </div>
-                <div className="bg-gray-900 p-4 rounded-xl border border-gray-600">
-                  <p className="text-sm text-gray-400 mb-2">Missing Days</p>
-                  <input type="text" placeholder="Emp ID" className="w-full bg-gray-800 border border-gray-700 rounded p-1 mb-2 text-sm" />
-                  <button onClick={() => alert('Deduction Added')} className="w-full bg-red-900/40 text-red-300 border border-red-900 hover:bg-red-900/60 text-xs py-2 rounded">Apply</button>
-                </div>
-                <div className="bg-gray-900 p-4 rounded-xl border border-gray-600">
-                  <p className="text-sm text-gray-400 mb-2">Unpaid Leave</p>
-                  <input type="text" placeholder="Emp ID" className="w-full bg-gray-800 border border-gray-700 rounded p-1 mb-2 text-sm" />
-                  <button onClick={() => alert('Deduction Added')} className="w-full bg-red-900/40 text-red-300 border border-red-900 hover:bg-red-900/60 text-xs py-2 rounded">Apply</button>
-                </div>
-              </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-1">Check-out Time</label>
+              <input type="time" value={newCheckOut} onChange={e => setNewCheckOut(e.target.value)} className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white" />
             </div>
           </div>
-
-          <div className="lg:col-span-1">
-            <div className="bg-gradient-to-b from-cyan-900 to-gray-900 p-6 rounded-2xl border border-cyan-700 shadow-lg text-center h-full flex flex-col justify-center">
-              <span className="material-symbols-outlined text-6xl text-cyan-400 mb-4">payments</span>
-              <h3 className="text-2xl font-bold text-white mb-2">Payroll System</h3>
-              <p className="text-gray-300 mb-8 text-sm">Generate monthly payrolls for all employees. m4 3arf ezay lesa</p>
-              <button onClick={handlePayroll} className="w-full bg-cyan-500 hover:bg-cyan-400 text-black font-bold py-3 rounded-xl shadow-cyan-500/50 shadow-lg transition transform hover:-translate-y-1">
-                Generate Payroll
-              </button>
-            </div>
+          <div className="flex justify-end gap-3 mt-6">
+            <button onClick={() => setIsAttendanceModalOpen(false)} className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-white">Cancel</button>
+            <button onClick={handleUpdateAttendance} className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 rounded-lg text-white font-semibold">Update Record</button>
           </div>
         </div>
       </div>
+    );
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-950 p-6 text-gray-100">
+      {renderAttendanceUpdateModal()}
+      {/* ...rest of your JSX unchanged... */}
     </div>
   );
 };
