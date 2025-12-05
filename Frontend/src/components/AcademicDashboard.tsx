@@ -19,7 +19,7 @@ interface PendingLeaveApproval {
 }
 
 const USER_ID = Number(localStorage.getItem("userId")) || 1;
-const CURRENT_SEMESTER = "W26";
+const CURRENT_SEMESTER = "W25";
 
 // Auth headers helper
 const getAuthHeaders = (): HeadersInit => {

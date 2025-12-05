@@ -116,7 +116,7 @@ public class EmployeeRepoImp implements EmployeeRepo {
         }
 
         public void Dean_andHR_Evaluation(Eval eval) {
-                String sql = "EXEC dbo.Dean_andHR_Evaluate(?,?,?,?)";
+                String sql = "EXEC dbo.Dean_andHR_Evaluation ?,?,?,?";
                 jdbcTemplate.update(
                                 sql,
                                 eval.getEmpId(),
