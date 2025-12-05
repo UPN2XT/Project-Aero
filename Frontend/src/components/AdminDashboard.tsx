@@ -284,7 +284,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
       return;
     }
     const success = await handleSimplePostAction('/api/admin/update-attendance', `Update Attendance for ID ${employeeIdToUpdate}`, {
-      Employee_id: parseInt(employeeIdToUpdate),
+      employee_id: parseInt(employeeIdToUpdate),
       check_in_time: newCheckIn + ':00',
       check_out_time: newCheckOut + ':00',
     });
