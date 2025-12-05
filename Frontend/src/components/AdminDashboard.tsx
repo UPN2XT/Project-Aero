@@ -44,8 +44,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
         headers: getAuthHeaders(),
       });
       if (response.ok) {
-        const data: EmployeeProfile[] = await response.json();
-        setEmployees(data);
+        const text = await response.text();
+        console.log("Raw response from employees:", text);
+        try {
+          const data: EmployeeProfile[] = text ? JSON.parse(text) : [];
+          setEmployees(data);
+        } catch (e) {
+          console.error("JSON Parse Error:", e);
+          setEmployees([]);
+        }
       } else {
         console.error("Failed to fetch employees:", response.statusText);
         setEmployees(mapMockEmployeesToProfiles(MOCK_EMPLOYEES));
