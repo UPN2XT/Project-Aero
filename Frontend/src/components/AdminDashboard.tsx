@@ -227,117 +227,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
     }
   }, [activeTab, fetchAllEmployees, fetchEmployeesPerDepartment, fetchRejectedLeaves]);
 
-  const handleInitiateAttendance = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/admin/initiate-attendance`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-      });
 
-      if (response.ok) {
-        const result = await response.json();
-        handleAction(`Daily attendance initiated successfully! Message: ${result.message || 'No message.'}`);
-      } else {
-        const error = await response.json();
-        handleAction(`Failed to initiate attendance: ${error.message || response.statusText}`);
-      }
-    } catch (error) {
-      handleAction('A network error occurred while initiating attendance.');
-    }
-  };
 
-  const handleAddHoliday = async () => {
-    if (!newHolidayName || !newHolidayDateFrom || !newHolidayDateTo) {
-      alert("Please fill in all holiday details.");
-      return;
-    }
 
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/admin/add-holiday`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({
-          holiday_name: newHolidayName,
-          from_Date: newHolidayDateFrom,
-          to_Date: newHolidayDateTo,
-        }),
-      });
-
-      if (response.ok) {
-        handleAction(`Holiday '${newHolidayName}' added successfully!`);
-        setNewHolidayName('');
-        setNewHolidayDateFrom('');
-        setNewHolidayDateTo('');
-      } else {
-        const error = await response.json();
-        handleAction(`Failed to add holiday: ${error.message || response.statusText}`);
-      }
-    } catch (error) {
-      handleAction('A network error occurred while adding the holiday.');
-    }
-  };
-
-  const handleUpdateAttendance = async () => {
-    if (employeeIdToUpdate === null) return;
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/admin/update-attendance`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({
-          check_in_time: newCheckIn,
-          check_out_time: newCheckOut,
-          Employee_id: employeeIdToUpdate,
-        }),
-      });
-
-      if (response.ok) {
-        handleAction(`Attendance updated for employee ID ${employeeIdToUpdate}.`);
-      } else {
-        const error = await response.json();
-        handleAction(`Failed to update attendance: ${error.message || response.statusText}`);
-      }
-    } catch (error) {
-      handleAction('A network error occurred while updating attendance.');
-    } finally {
-      setIsAttendanceModalOpen(false);
-      setEmployeeIdToUpdate(null);
-    }
-  };
-
-  const handleReplaceEmployee = async () => {
-    if (!replaceEmpId1 || !replaceEmpId2 || !replaceFromDate || !replaceToDate) {
-      alert("Please fill in all replacement details.");
-      return;
-    }
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/admin/replace-employee`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({
-          Emp1_ID: Number(replaceEmpId1),
-          Emp2_ID: Number(replaceEmpId2),
-          from_date: replaceFromDate,
-          to_date: replaceToDate,
-        }),
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        handleAction(`Replacement successful! ${result.message || ''}`);
-        setReplaceEmpId1('');
-        setReplaceEmpId2('');
-        setReplaceFromDate('');
-        setReplaceToDate('');
-      } else {
-        const error = await response.json();
-        handleAction(`Failed to replace employee: ${error.message || response.statusText}`);
-      }
-    } catch (error) {
-      handleAction('A network error occurred while replacing employee.');
-    }
-  };
 
   const handleSimplePostAction = async (endpoint: string, actionName: string, body?: any) => {
     try {
@@ -399,19 +291,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
   };
 
   const handleReplaceEmployee = async () => {
-    if (!replaceEmp1Id || !replaceEmp2Id || !replaceFromDate || !replaceToDate) {
+    if (!replaceEmpId1 || !replaceEmpId2 || !replaceFromDate || !replaceToDate) {
       showMessage('Please fill in all replacement details.', true);
       return;
     }
     const success = await handleSimplePostAction('/api/admin/replace-employee', 'Employee Replacement', {
-      Emp1_ID: parseInt(replaceEmp1Id),
-      Emp2_ID: parseInt(replaceEmp2Id),
+      Emp1_ID: parseInt(replaceEmpId1),
+      Emp2_ID: parseInt(replaceEmpId2),
       from_date: replaceFromDate,
       to_date: replaceToDate,
     });
     if (success) {
-      setReplaceEmp1Id('');
-      setReplaceEmp2Id('');
+      setReplaceEmpId1('');
+      setReplaceEmpId2('');
       setReplaceFromDate('');
       setReplaceToDate('');
     }
@@ -566,7 +458,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-950 p-6 text-gray-100">
-      {renderAttendanceUpdateModal()}
+      {renderAttendanceModal()}
       {renderYesterdayModal()}
       <div className="max-w-7xl mx-auto">
         <div className="flex justify-between items-center mb-8 bg-gray-800/50 p-4 rounded-2xl border border-gray-700 backdrop-blur-md">
@@ -600,14 +492,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
               </div>
             </div>
           </div>
-          <button
-            onClick={handleAddHoliday}
-            className="w-full px-4 py-2 bg-green-600 hover:bg-green-500 rounded-lg text-white font-semibold transition"
-          >
-            Add Holiday
-          </button>
-        </div>
-      </div>
 
           <div className="md:col-span-3 bg-gray-800/80 p-8 rounded-2xl border border-gray-700 min-h-[500px]">
             {activeTab === 'employees' && (
@@ -858,115 +742,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
               </div>
             )}
           </div>
-        ) : (
-          <div className="text-center py-8 text-gray-400">No performance records found</div>
-        )}
-      </div>
-
-      {/* Employee Replacement */}
-      <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700 max-w-2xl">
-        <h4 className="text-lg font-semibold text-white mb-4">Employee Replacement</h4>
-        <p className="text-sm text-gray-400 mb-4">Assign a replacement employee for a specific period.</p>
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Employee to Replace</label>
-              <input
-                type="number"
-                value={replaceEmp1Id}
-                onChange={(e) => setReplaceEmp1Id(e.target.value)}
-                className="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:border-cyan-500 focus:outline-none"
-                placeholder="Employee ID"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Replacement Employee</label>
-              <input
-                type="number"
-                value={replaceEmp2Id}
-                onChange={(e) => setReplaceEmp2Id(e.target.value)}
-                className="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:border-cyan-500 focus:outline-none"
-                placeholder="Replacement ID"
-              />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">From Date</label>
-              <input
-                type="date"
-                value={replaceFromDate}
-                onChange={(e) => setReplaceFromDate(e.target.value)}
-                className="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:border-cyan-500 focus:outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">To Date</label>
-              <input
-                type="date"
-                value={replaceToDate}
-                onChange={(e) => setReplaceToDate(e.target.value)}
-                className="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:border-cyan-500 focus:outline-none"
-              />
-            </div>
-          </div>
-          <button
-            onClick={handleReplaceEmployee}
-            className="w-full px-4 py-2 bg-orange-600 hover:bg-orange-500 rounded-lg text-white font-semibold transition"
-          >
-            Replace Employee
-          </button>
         </div>
-      </div>
-    </div>
-  );
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-950 p-6 text-gray-100">
-      {renderAttendanceModal()}
-
-      {/* Header */}
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold">
-          <span className="text-cyan-400">Admin</span> Dashboard
-        </h1>
-        <button
-          onClick={onLogout}
-          className="px-4 py-2 bg-red-600 hover:bg-red-500 rounded-lg text-white font-semibold transition"
-        >
-          Logout
-        </button>
-      </div>
-
-      {/* Error Banner */}
-      {error && (
-        <div className="mb-6 p-4 bg-red-500/20 border border-red-500 rounded-lg text-red-300">
-          {error}
-        </div>
-      )}
-
-      {/* Tabs */}
-      <div className="flex gap-2 mb-8 flex-wrap">
-        {(['employees', 'attendance', 'holidays', 'general'] as AdminTab[]).map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 rounded-lg font-medium transition ${activeTab === tab
-                ? 'bg-cyan-600 text-white'
-                : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-              }`}
-          >
-            {tab.charAt(0).toUpperCase() + tab.slice(1)}
-          </button>
-        ))}
-      </div>
-
-      {/* Tab Content */}
-      <div className="bg-gray-800/30 rounded-xl p-6 border border-gray-700">
-        {activeTab === 'employees' && renderEmployeesTab()}
-        {activeTab === 'attendance' && renderAttendanceTab()}
-        {activeTab === 'holidays' && renderHolidaysTab()}
-        {activeTab === 'general' && renderGeneralTab()}
       </div>
     </div>
   );
