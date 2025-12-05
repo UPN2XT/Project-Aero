@@ -52,7 +52,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
   const [targetLeaveEmpId, setTargetLeaveEmpId] = useState('');
 
   /* Department & Yesterday Attendance State */
-  const [employeesPerDept, setEmployeesPerDept] = useState<{ dept_name: string, employee_count: number }[]>([]);
+  const [employeesPerDept, setEmployeesPerDept] = useState<{ dept_name: string, num_employees: number }[]>([]);
   const [yesterdayAttendance, setYesterdayAttendance] = useState<any[]>([]);
   const [showYesterdayModal, setShowYesterdayModal] = useState(false);
 
@@ -188,7 +188,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
         headers: getAuthHeaders(),
       });
       if (response.ok) {
-        const data: { dept_name: string, employee_count: number }[] = await response.json();
+        const data: { dept_name: string, num_employees: number }[] = await response.json();
         setEmployeesPerDept(data);
       } else {
         console.error("Failed to fetch employees per department:", response.statusText);
@@ -633,7 +633,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                       {employeesPerDept.map((dept) => (
                         <div key={dept.dept_name} className="bg-gray-800/50 p-3 rounded-lg border border-gray-700 text-center">
-                          <div className="text-2xl font-bold text-cyan-400">{dept.employee_count}</div>
+                          <div className="text-2xl font-bold text-cyan-400">{dept.num_employees}</div>
                           <div className="text-sm text-gray-400">{dept.dept_name}</div>
                         </div>
                       ))}
