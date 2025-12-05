@@ -1687,8 +1687,8 @@ CREATE or alter FUNCTION MyAttendance
 FROM Attendance A
     Inner join Employee E
     ON A.emp_ID = E.employee_id
-WHERE A.emp_id = @employee_ID AND month(A.date)=month(current_timestamp) AND year(A.date) = year(current_timestamp)
-    AND ((DATENAME(WEEKDAY, A.date)<> E.official_day_off AND status='Attended') OR (DATENAME(WEEKDAY, A.date)= E.official_day_off AND status='Attended'))
+WHERE A.emp_id = @employee_ID AND month(A.date)=month(GETDATE()) AND year(A.date) = year(GETDATE())
+  AND ((DATENAME(WEEKDAY, A.date)<> E.official_day_off) OR (DATENAME(WEEKDAY, A.date)= E.official_day_off AND status='Attended'))
 
         )
 
