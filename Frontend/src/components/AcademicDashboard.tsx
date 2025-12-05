@@ -1,6 +1,7 @@
 // AcademicDashboard.tsx
 import React, { useState, useEffect, useCallback } from "react";
 import { authenticatedFetch } from "../api/apiService";
+import { showError, showSuccess } from "../utils/toast";
 
 type AcademicView = "leaves" | "info" | "dean";
 
@@ -70,7 +71,7 @@ export const AcademicDashboard: React.FC<AcademicDashboardProps> = ({ onLogout }
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        alert(
+        showError(
           `Error (${response.status}): ${errorData.message || "Request failed"}`
         );
         return null;
@@ -82,7 +83,7 @@ export const AcademicDashboard: React.FC<AcademicDashboardProps> = ({ onLogout }
       return await response.json();
     } catch (error) {
       setLoading(false);
-      alert(`Network error for ${endpoint}.`);
+      showError(`Network error for ${endpoint}.`);
       return null;
     }
   };
@@ -116,7 +117,7 @@ export const AcademicDashboard: React.FC<AcademicDashboardProps> = ({ onLogout }
     // --- Logic based on Leave Type ---
     switch (selectedLeaveType) {
       case "Annual Leave":
-        if (!replacementIdInput) return alert("Replacement ID is required.");
+        if (!replacementIdInput) return showError("Replacement ID is required.");
         endpoint = "/employee/submit/annual";
         payload = {
           start: startDate,
@@ -135,7 +136,7 @@ export const AcademicDashboard: React.FC<AcademicDashboardProps> = ({ onLogout }
         break;
 
       case "Medical Leave":
-        if (!uploadedFile) return alert("Medical document is required.");
+        if (!uploadedFile) return showError("Medical document is required.");
         endpoint = "/employee/submit/medical";
         payload = {
           start: startDate,
@@ -149,7 +150,7 @@ export const AcademicDashboard: React.FC<AcademicDashboardProps> = ({ onLogout }
         break;
 
       case "Unpaid Leave":
-        if (!uploadedFile) return alert("Reason document is required.");
+        if (!uploadedFile) return showError("Reason document is required.");
         endpoint = "/employee/submit/unpaid";
         payload = {
           start: startDate,
@@ -160,7 +161,7 @@ export const AcademicDashboard: React.FC<AcademicDashboardProps> = ({ onLogout }
         break;
 
       case "Compensation Leave":
-        if (!replacementIdInput) return alert("Replacement ID is required.");
+        if (!replacementIdInput) return showError("Replacement ID is required.");
         endpoint = "/employee/submit/compensation";
         payload = {
           compdate: formData.get("compdate"),
@@ -178,7 +179,7 @@ export const AcademicDashboard: React.FC<AcademicDashboardProps> = ({ onLogout }
     if (endpoint) {
       const result = await handleFetch(endpoint, payload);
       if (result) {
-        alert(`${selectedLeaveType} submitted successfully.`);
+        showSuccess(`${selectedLeaveType} submitted successfully.`);
         // Reset form states
         setReplacementIdInput("");
         setUploadedFile(null);
@@ -268,7 +269,7 @@ export const AcademicDashboard: React.FC<AcademicDashboardProps> = ({ onLogout }
       });
 
       if (response.ok) {
-        alert(`Leave request #${requestID} approved successfully!`);
+        showSuccess(`Leave request #${requestID} approved successfully!`);
         fetchPendingApprovals(); // Refresh the list
       } else if (response.status === 401) {
         setError('Session expired. Please log in again.');
