@@ -404,60 +404,62 @@ export const HRDashboard: React.FC<HRDashboardProps> = ({ onLogout, onSwitchRole
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-950 p-6 text-gray-100">
-      {/* Header */}
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold">
-          <span className="text-cyan-400">HR</span> Dashboard
-        </h1>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => {
-              localStorage.setItem('userRole', 'Academic');
-              onSwitchRole('Academic');
-            }}
-            className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 rounded-lg text-white font-semibold transition flex items-center gap-2"
-          >
-            <span>🎓</span> Switch to Academic Portal
-          </button>
-          <button
-            onClick={onLogout}
-            className="px-4 py-2 bg-red-600 hover:bg-red-500 rounded-lg text-white font-semibold transition"
-          >
-            Logout
-          </button>
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-950 p-6">
+      <div className="max-w-5xl mx-auto">
+        {/* Header */}
+        <div className="flex justify-between items-center mb-8 bg-gray-800/50 p-4 rounded-2xl border border-gray-700 backdrop-blur-md">
+          <h1 className="text-2xl font-bold text-white">
+            <span className="text-cyan-400">HR</span> Dashboard
+          </h1>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => {
+                localStorage.setItem('userRole', 'Academic');
+                onSwitchRole('Academic');
+              }}
+              className="text-sm bg-cyan-600/20 text-cyan-400 px-4 py-2 rounded-lg hover:bg-cyan-600/30 transition border border-cyan-500/30"
+            >
+              <span>🎓</span> Switch to Academic Portal
+            </button>
+            <button
+              onClick={onLogout}
+              className="text-sm bg-red-500/20 text-red-400 px-4 py-2 rounded-lg hover:bg-red-500/30 transition"
+            >
+              Logout
+            </button>
+          </div>
         </div>
-      </div>
 
-      {/* Error Banner */}
-      {error && (
-        <div className="mb-6 p-4 bg-red-500/20 border border-red-500 rounded-lg text-red-300">
-          {error}
+        {/* Error Banner */}
+        {error && (
+          <div className="mb-6 p-4 bg-red-500/20 border border-red-500 rounded-lg text-red-300">
+            {error}
+          </div>
+        )}
+
+        {/* Tabs */}
+        <div className="flex gap-4 mb-6 border-b border-gray-700 pb-2">
+          {(['employees', 'approvals', 'deductions', 'payroll'] as HRTab[]).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`pb-2 px-1 capitalize ${activeTab === tab
+                ? "text-cyan-400 border-b-2 border-cyan-400"
+                : "text-gray-400 hover:text-white"
+                }`}
+            >
+              {tab.charAt(0).toUpperCase() + tab.slice(1)}
+            </button>
+          ))}
         </div>
-      )}
 
-      {/* Tabs */}
-      <div className="flex gap-2 mb-8 flex-wrap">
-        {(['employees', 'approvals', 'deductions', 'payroll'] as HRTab[]).map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 rounded-lg font-medium transition ${activeTab === tab
-              ? 'bg-cyan-600 text-white'
-              : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-              }`}
-          >
-            {tab.charAt(0).toUpperCase() + tab.slice(1)}
-          </button>
-        ))}
-      </div>
-
-      {/* Tab Content */}
-      <div className="bg-gray-800/30 rounded-xl p-6 border border-gray-700">
-        {activeTab === 'employees' && renderEmployeesTab()}
-        {activeTab === 'approvals' && renderApprovalsTab()}
-        {activeTab === 'deductions' && renderDeductionsTab()}
-        {activeTab === 'payroll' && renderPayrollTab()}
+        {/* Tab Content */}
+        <div className="bg-gray-800/80 p-8 rounded-2xl border border-gray-700">
+          {activeTab === 'employees' && renderEmployeesTab()}
+          {activeTab === 'approvals' && renderApprovalsTab()}
+          {activeTab === 'deductions' && renderDeductionsTab()}
+          {activeTab === 'payroll' && renderPayrollTab()}
+        </div>
       </div>
     </div>
   );
