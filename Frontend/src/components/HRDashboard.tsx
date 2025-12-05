@@ -1,175 +1,450 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import type { EmployeeProfile, RejectedLeave, PerformanceRecord } from '../types';
-import { MOCK_EMPLOYEES, mapMockEmployeesToProfiles } from '../types';
 
-type AdminTab = 'employees' | 'attendance' | 'general';
+// Types matching the backend HR DTOs
+interface ManagedEmployee {
+  employeeId: number;
+  name: string;
+}
 
-interface AdminDashboardProps {
+interface LeaveApproval {
+  requestId: number;
+  empId: number;
+  type: string;
+  dateOfRequest: string;
+  status: string;
+}
+
+type HRTab = 'employees' | 'approvals' | 'deductions' | 'payroll';
+
+interface HRDashboardProps {
   onLogout: () => void;
 }
 
 const API_BASE_URL = ''; // your backend URL
-const getAuthHeaders = () => {
-  const token = localStorage.getItem('jwtToken'); // Bearer token
-  if (!token) console.warn('No JWT token found in localStorage!');
+
+const getAuthHeaders = (): HeadersInit => {
+  const token = localStorage.getItem('jwtToken');
+  if (!token) {
+    console.warn('No JWT token found in localStorage!');
+  }
   return {
     'Content-Type': 'application/json',
-    ...(token && { 'Authorization': `Bearer ${token}` }),
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
   };
 };
 
-export const HRDashboard: React.FC<AdminDashboardProps> = ({ onLogout: _onLogout }) => {
-  const [activeTab, _setActiveTab] = useState<AdminTab>('employees');
-  const [employees, _setEmployees] = useState<EmployeeProfile[]>([]);
-  const [rejectedLeaves, _setRejectedLeaves] = useState<RejectedLeave[]>([]);
-  const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
-  const [employeeIdToUpdate, setEmployeeIdToUpdate] = useState<number | null>(null);
-  const [newCheckIn, setNewCheckIn] = useState('09:00:00');
-  const [newCheckOut, setNewCheckOut] = useState('17:00:00');
-  const [newHolidayName, setNewHolidayName] = useState('');
-  const [newHolidayDateFrom, setNewHolidayDateFrom] = useState('');
-  const [newHolidayDateTo, setNewHolidayDateTo] = useState('');
+export const HRDashboard: React.FC<HRDashboardProps> = ({ onLogout }) => {
+  const [activeTab, setActiveTab] = useState<HRTab>('employees');
+  const [employees, setEmployees] = useState<ManagedEmployee[]>([]);
+  const [approvals, setApprovals] = useState<LeaveApproval[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleAction = (action: string) => alert(`${action}`);
+  // Deduction form state
+  const [deductionEmployeeId, setDeductionEmployeeId] = useState<string>('');
+  const [deductionType, setDeductionType] = useState<'hours' | 'days' | 'unpaid'>('hours');
 
-  const _getStatusClass = (status: string) => status === 'Active'
-    ? 'bg-green-500/20 text-green-300'
-    : 'bg-red-500/20 text-red-300';
+  // Payroll form state
+  const [payrollEmployeeId, setPayrollEmployeeId] = useState<string>('');
+  const [payrollFromDate, setPayrollFromDate] = useState<string>('');
+  const [payrollToDate, setPayrollToDate] = useState<string>('');
 
-  const fetchAllEmployees = useCallback(async () => {
+  const showMessage = (message: string, isError = false) => {
+    if (isError) {
+      setError(message);
+      setTimeout(() => setError(null), 5000);
+    } else {
+      alert(message);
+    }
+  };
+
+  const fetchManagedEmployees = useCallback(async () => {
+    setLoading(true);
+    setError(null);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/admin/all-employee-profiles`, {
+      const response = await fetch(`${API_BASE_URL}/api/hr/get-managed-employees`, {
         method: 'POST',
         headers: getAuthHeaders(),
       });
-      if (response.ok) {
-        const data: EmployeeProfile[] = await response.json();
-        _setEmployees(data);
-      } else {
-        console.error("Failed to fetch employees:", response.statusText);
-        _setEmployees(mapMockEmployeesToProfiles(MOCK_EMPLOYEES));
-      }
-    } catch (error) {
-      console.error('Network error fetching employees:', error);
-      _setEmployees(mapMockEmployeesToProfiles(MOCK_EMPLOYEES));
-    }
-  }, []);
 
-  const fetchRejectedLeaves = useCallback(async () => {
+      if (response.ok) {
+        const data: ManagedEmployee[] = await response.json();
+        setEmployees(data);
+      } else if (response.status === 401) {
+        showMessage('Session expired. Please log in again.', true);
+        onLogout();
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        showMessage(`Failed to fetch employees: ${errorData.message || response.statusText}`, true);
+      }
+    } catch (err) {
+      console.error('Network error fetching employees:', err);
+      showMessage('Network error. Please check your connection.', true);
+    } finally {
+      setLoading(false);
+    }
+  }, [onLogout]);
+
+  const fetchApprovals = useCallback(async () => {
+    setLoading(true);
+    setError(null);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/admin/rejected-medicals`, {
+      const response = await fetch(`${API_BASE_URL}/api/hr/approvals/get-all`, {
         method: 'POST',
         headers: getAuthHeaders(),
       });
-      if (response.ok) {
-        const data: RejectedLeave[] = await response.json();
-        _setRejectedLeaves(data);
-      } else {
-        console.error("Failed to fetch rejected leaves:", response.statusText);
-        _setRejectedLeaves([]);
-      }
-    } catch (error) {
-      console.error('Network error fetching rejected leaves:', error);
-      _setRejectedLeaves([]);
-    }
-  }, []);
 
-  const _fetchWinterPerformance = useCallback(async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/admin/winter-performance`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-      });
       if (response.ok) {
-        const data: PerformanceRecord[] = await response.json();
-        alert(`Fetched ${data.length} Winter Performance Records.`);
-        console.log("Winter Performance Data:", data);
+        const data: LeaveApproval[] = await response.json();
+        setApprovals(data);
+      } else if (response.status === 401) {
+        showMessage('Session expired. Please log in again.', true);
+        onLogout();
       } else {
-        const error = await response.json();
-        alert(`Failed to fetch Winter Performance: ${error.message || response.statusText}`);
+        const errorData = await response.json().catch(() => ({}));
+        showMessage(`Failed to fetch approvals: ${errorData.message || response.statusText}`, true);
       }
-    } catch (error) {
-      console.error('Network error fetching winter performance:', error);
-      alert('A network error occurred while fetching performance data.');
+    } catch (err) {
+      console.error('Network error fetching approvals:', err);
+      showMessage('Network error. Please check your connection.', true);
+    } finally {
+      setLoading(false);
     }
-  }, []);
+  }, [onLogout]);
 
   useEffect(() => {
-    if (activeTab === 'employees') fetchAllEmployees();
-    if (activeTab === 'attendance') fetchRejectedLeaves();
-  }, [activeTab, fetchAllEmployees, fetchRejectedLeaves]);
+    if (activeTab === 'employees') {
+      fetchManagedEmployees();
+    } else if (activeTab === 'approvals') {
+      fetchApprovals();
+    }
+  }, [activeTab, fetchManagedEmployees, fetchApprovals]);
 
-  const handleSimplePostAction = async (endpoint: string, actionName: string, body?: any) => {
+  const handleApproval = async (requestId: number, type: 'accidental' | 'annual' | 'unpaid' | 'compensation') => {
     try {
-      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      const response = await fetch(`${API_BASE_URL}/api/hr/approvals/${type}`, {
         method: 'POST',
         headers: getAuthHeaders(),
-        ...(body && { body: JSON.stringify(body) }),
+        body: JSON.stringify({ request_id: requestId }),
       });
+
       if (response.ok) {
-        const result = await response.json();
-        handleAction(`${actionName} completed successfully! Message: ${result.message || 'No message.'}`);
+        showMessage(`Leave request #${requestId} processed successfully!`);
+        fetchApprovals(); // Refresh the list
+      } else if (response.status === 401) {
+        showMessage('Session expired. Please log in again.', true);
+        onLogout();
       } else {
-        const error = await response.json();
-        handleAction(`Failed to perform ${actionName}: ${error.message || response.statusText}`);
+        const errorData = await response.json().catch(() => ({}));
+        showMessage(`Failed to process request: ${errorData.message || response.statusText}`, true);
       }
-    } catch (error) {
-      handleAction(`A network error occurred during ${actionName}.`);
+    } catch (err) {
+      console.error('Network error processing approval:', err);
+      showMessage('Network error. Please check your connection.', true);
     }
   };
 
-  const _handleInitiateAttendance = () => handleSimplePostAction('/api/admin/initiate-attendance', 'Daily Attendance Initiation');
-  const _handleAddHoliday = () => {
-    if (!newHolidayName || !newHolidayDateFrom || !newHolidayDateTo) return alert("Please fill in all holiday details.");
-    handleSimplePostAction('/api/admin/add-holiday', `Add Holiday '${newHolidayName}'`, {
-      holiday_name: newHolidayName,
-      from_Date: newHolidayDateFrom,
-      to_Date: newHolidayDateTo,
-    });
-    setNewHolidayName('');
-    setNewHolidayDateFrom('');
-    setNewHolidayDateTo('');
-  };
-  const handleUpdateAttendance = () => {
-    if (employeeIdToUpdate === null) return;
-    handleSimplePostAction('/api/admin/update-attendance', `Update Attendance for ID ${employeeIdToUpdate}`, {
-      check_in_time: newCheckIn,
-      check_out_time: newCheckOut,
-      Employee_id: employeeIdToUpdate,
-    });
-    setIsAttendanceModalOpen(false);
-    setEmployeeIdToUpdate(null);
+  const handleAddDeduction = async () => {
+    if (!deductionEmployeeId) {
+      showMessage('Please enter an Employee ID', true);
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/hr/deductions/${deductionType}`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ employee_id: parseInt(deductionEmployeeId) }),
+      });
+
+      if (response.ok) {
+        showMessage(`Deduction (${deductionType}) added successfully for employee #${deductionEmployeeId}!`);
+        setDeductionEmployeeId('');
+      } else if (response.status === 401) {
+        showMessage('Session expired. Please log in again.', true);
+        onLogout();
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        showMessage(`Failed to add deduction: ${errorData.message || response.statusText}`, true);
+      }
+    } catch (err) {
+      console.error('Network error adding deduction:', err);
+      showMessage('Network error. Please check your connection.', true);
+    }
   };
 
-  const renderAttendanceUpdateModal = () => {
-    if (!isAttendanceModalOpen) return null;
-    return (
-      <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-        <div className="bg-gray-800 p-6 rounded-xl shadow-2xl w-full max-w-md border border-cyan-700/50">
-          <h3 className="text-xl font-bold text-white mb-4">Update Attendance for ID: {employeeIdToUpdate}</h3>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-400 mb-1">Check-in Time</label>
-              <input type="time" value={newCheckIn} onChange={e => setNewCheckIn(e.target.value)} className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white" />
+  const handleGeneratePayroll = async () => {
+    if (!payrollEmployeeId || !payrollFromDate || !payrollToDate) {
+      showMessage('Please fill in all payroll fields', true);
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/hr/payrolls/add`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          employee_id: parseInt(payrollEmployeeId),
+          fromDate: payrollFromDate,
+          toDate: payrollToDate,
+        }),
+      });
+
+      if (response.ok) {
+        showMessage(`Payroll generated successfully for employee #${payrollEmployeeId}!`);
+        setPayrollEmployeeId('');
+        setPayrollFromDate('');
+        setPayrollToDate('');
+      } else if (response.status === 401) {
+        showMessage('Session expired. Please log in again.', true);
+        onLogout();
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        showMessage(`Failed to generate payroll: ${errorData.message || response.statusText}`, true);
+      }
+    } catch (err) {
+      console.error('Network error generating payroll:', err);
+      showMessage('Network error. Please check your connection.', true);
+    }
+  };
+
+  const renderEmployeesTab = () => (
+    <div className="space-y-4">
+      <h3 className="text-xl font-bold text-cyan-400">Managed Employees</h3>
+      {loading ? (
+        <div className="text-center py-8 text-gray-400">Loading...</div>
+      ) : employees.length === 0 ? (
+        <div className="text-center py-8 text-gray-400">No employees found</div>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {employees.map((emp) => (
+            <div
+              key={emp.employeeId}
+              className="bg-gray-800/50 p-4 rounded-xl border border-gray-700 hover:border-cyan-500/50 transition"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-cyan-600 rounded-full flex items-center justify-center text-white font-bold">
+                  {emp.name.charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <p className="font-semibold text-white">{emp.name}</p>
+                  <p className="text-sm text-gray-400">ID: {emp.employeeId}</p>
+                </div>
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-400 mb-1">Check-out Time</label>
-              <input type="time" value={newCheckOut} onChange={e => setNewCheckOut(e.target.value)} className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white" />
-            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
+  const renderApprovalsTab = () => (
+    <div className="space-y-4">
+      <h3 className="text-xl font-bold text-cyan-400">Pending Leave Approvals</h3>
+      {loading ? (
+        <div className="text-center py-8 text-gray-400">Loading...</div>
+      ) : approvals.length === 0 ? (
+        <div className="text-center py-8 text-gray-400">No pending approvals</div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="text-left text-gray-400 border-b border-gray-700">
+                <th className="pb-3 px-2">Request ID</th>
+                <th className="pb-3 px-2">Employee ID</th>
+                <th className="pb-3 px-2">Type</th>
+                <th className="pb-3 px-2">Date</th>
+                <th className="pb-3 px-2">Status</th>
+                <th className="pb-3 px-2">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {approvals.map((approval) => (
+                <tr key={approval.requestId} className="border-b border-gray-800 hover:bg-gray-800/50">
+                  <td className="py-3 px-2 text-white">{approval.requestId}</td>
+                  <td className="py-3 px-2 text-white">{approval.empId}</td>
+                  <td className="py-3 px-2 text-cyan-300">{approval.type}</td>
+                  <td className="py-3 px-2 text-gray-300">{approval.dateOfRequest}</td>
+                  <td className="py-3 px-2">
+                    <span className={`px-2 py-1 rounded-full text-xs ${approval.status === 'Pending' ? 'bg-yellow-500/20 text-yellow-300' :
+                        approval.status === 'Approved' ? 'bg-green-500/20 text-green-300' :
+                          'bg-red-500/20 text-red-300'
+                      }`}>
+                      {approval.status}
+                    </span>
+                  </td>
+                  <td className="py-3 px-2">
+                    <div className="flex gap-2">
+                      {approval.type.toLowerCase().includes('annual') && (
+                        <button
+                          onClick={() => handleApproval(approval.requestId, 'annual')}
+                          className="px-3 py-1 bg-green-600 hover:bg-green-500 rounded text-xs text-white"
+                        >
+                          Process
+                        </button>
+                      )}
+                      {approval.type.toLowerCase().includes('accidental') && (
+                        <button
+                          onClick={() => handleApproval(approval.requestId, 'accidental')}
+                          className="px-3 py-1 bg-green-600 hover:bg-green-500 rounded text-xs text-white"
+                        >
+                          Process
+                        </button>
+                      )}
+                      {approval.type.toLowerCase().includes('unpaid') && (
+                        <button
+                          onClick={() => handleApproval(approval.requestId, 'unpaid')}
+                          className="px-3 py-1 bg-green-600 hover:bg-green-500 rounded text-xs text-white"
+                        >
+                          Process
+                        </button>
+                      )}
+                      {approval.type.toLowerCase().includes('compensation') && (
+                        <button
+                          onClick={() => handleApproval(approval.requestId, 'compensation')}
+                          className="px-3 py-1 bg-green-600 hover:bg-green-500 rounded text-xs text-white"
+                        >
+                          Process
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+
+  const renderDeductionsTab = () => (
+    <div className="space-y-6">
+      <h3 className="text-xl font-bold text-cyan-400">Add Employee Deduction</h3>
+      <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700 max-w-md">
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">Employee ID</label>
+            <input
+              type="number"
+              value={deductionEmployeeId}
+              onChange={(e) => setDeductionEmployeeId(e.target.value)}
+              className="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:border-cyan-500 focus:outline-none"
+              placeholder="Enter employee ID"
+            />
           </div>
-          <div className="flex justify-end gap-3 mt-6">
-            <button onClick={() => setIsAttendanceModalOpen(false)} className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-white">Cancel</button>
-            <button onClick={handleUpdateAttendance} className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 rounded-lg text-white font-semibold">Update Record</button>
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">Deduction Type</label>
+            <select
+              value={deductionType}
+              onChange={(e) => setDeductionType(e.target.value as 'hours' | 'days' | 'unpaid')}
+              className="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:border-cyan-500 focus:outline-none"
+            >
+              <option value="hours">Missing Hours</option>
+              <option value="days">Missing Days</option>
+              <option value="unpaid">Unpaid Leave</option>
+            </select>
           </div>
+          <button
+            onClick={handleAddDeduction}
+            className="w-full px-4 py-2 bg-cyan-600 hover:bg-cyan-500 rounded-lg text-white font-semibold transition"
+          >
+            Add Deduction
+          </button>
         </div>
       </div>
-    );
-  };
+    </div>
+  );
+
+  const renderPayrollTab = () => (
+    <div className="space-y-6">
+      <h3 className="text-xl font-bold text-cyan-400">Generate Monthly Payroll</h3>
+      <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700 max-w-md">
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">Employee ID</label>
+            <input
+              type="number"
+              value={payrollEmployeeId}
+              onChange={(e) => setPayrollEmployeeId(e.target.value)}
+              className="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:border-cyan-500 focus:outline-none"
+              placeholder="Enter employee ID"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">From Date</label>
+            <input
+              type="date"
+              value={payrollFromDate}
+              onChange={(e) => setPayrollFromDate(e.target.value)}
+              className="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:border-cyan-500 focus:outline-none"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">To Date</label>
+            <input
+              type="date"
+              value={payrollToDate}
+              onChange={(e) => setPayrollToDate(e.target.value)}
+              className="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:border-cyan-500 focus:outline-none"
+            />
+          </div>
+          <button
+            onClick={handleGeneratePayroll}
+            className="w-full px-4 py-2 bg-cyan-600 hover:bg-cyan-500 rounded-lg text-white font-semibold transition"
+          >
+            Generate Payroll
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-950 p-6 text-gray-100">
-      {renderAttendanceUpdateModal()}
-      {/* ...rest of your JSX unchanged... */}
+      {/* Header */}
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-3xl font-bold">
+          <span className="text-cyan-400">HR</span> Dashboard
+        </h1>
+        <button
+          onClick={onLogout}
+          className="px-4 py-2 bg-red-600 hover:bg-red-500 rounded-lg text-white font-semibold transition"
+        >
+          Logout
+        </button>
+      </div>
+
+      {/* Error Banner */}
+      {error && (
+        <div className="mb-6 p-4 bg-red-500/20 border border-red-500 rounded-lg text-red-300">
+          {error}
+        </div>
+      )}
+
+      {/* Tabs */}
+      <div className="flex gap-2 mb-8 flex-wrap">
+        {(['employees', 'approvals', 'deductions', 'payroll'] as HRTab[]).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`px-4 py-2 rounded-lg font-medium transition ${activeTab === tab
+                ? 'bg-cyan-600 text-white'
+                : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+              }`}
+          >
+            {tab.charAt(0).toUpperCase() + tab.slice(1)}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab Content */}
+      <div className="bg-gray-800/30 rounded-xl p-6 border border-gray-700">
+        {activeTab === 'employees' && renderEmployeesTab()}
+        {activeTab === 'approvals' && renderApprovalsTab()}
+        {activeTab === 'deductions' && renderDeductionsTab()}
+        {activeTab === 'payroll' && renderPayrollTab()}
+      </div>
     </div>
   );
 };
