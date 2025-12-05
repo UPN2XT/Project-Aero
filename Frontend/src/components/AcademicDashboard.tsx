@@ -35,6 +35,10 @@ export const AcademicDashboard: React.FC<AcademicDashboardProps> = ({ onLogout }
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // === User Profile State ===
+  const [userName, setUserName] = useState<string>("User");
+  const [userRole, setUserRole] = useState<string>("");
+
   // === Form State ===
   const [selectedLeaveType, setSelectedLeaveType] = useState("Annual Leave");
   const [replacementIdInput, setReplacementIdInput] = useState("");
@@ -191,24 +195,33 @@ export const AcademicDashboard: React.FC<AcademicDashboardProps> = ({ onLogout }
     if (data) setLeaveStatus(data);
   };
 
-  // Fetch pending approvals from HR API (Dean/Upper Board uses same endpoint)
+  // Fetch pending approvals - uses employee status-leaves endpoint
   const fetchPendingApprovals = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch('/api/hr/approvals/get-all', {
+      const response = await fetch('/api/employee/status-leaves', {
         method: 'POST',
         headers: getAuthHeaders(),
+        body: JSON.stringify({ employee_ID: USER_ID }),
       });
 
       if (response.ok) {
-        const data: PendingLeaveApproval[] = await response.json();
-        // Filter only Annual and Unpaid leaves (Dean can only approve these)
+        const data: any[] = await response.json();
+        // Filter only pending Annual and Unpaid leaves that need dean approval
         const deanApprovals = data.filter(
           (leave) =>
-            leave.type?.toLowerCase().includes('annual') ||
-            leave.type?.toLowerCase().includes('unpaid')
-        );
+            (leave.type?.toLowerCase().includes('annual') ||
+              leave.type?.toLowerCase().includes('unpaid')) &&
+            (leave.finalApprovalStatus?.toLowerCase() === 'pending' ||
+              leave.status?.toLowerCase() === 'pending')
+        ).map((leave) => ({
+          requestId: leave.requestId || leave.request_ID,
+          empId: leave.empId || leave.emp_ID || USER_ID,
+          type: leave.type,
+          dateOfRequest: leave.dateOfRequest || leave.date_of_request,
+          status: leave.finalApprovalStatus || leave.status || 'Pending'
+        }));
         setPendingApprovals(deanApprovals);
       } else if (response.status === 401) {
         setError('Session expired. Please log in again.');
@@ -281,7 +294,38 @@ export const AcademicDashboard: React.FC<AcademicDashboardProps> = ({ onLogout }
     }
   };
 
+  // Fetch user profile
+  const fetchUserProfile = useCallback(async () => {
+    try {
+      const response = await fetch('/api/employee/me', {
+        method: 'POST',
+        headers: getAuthHeaders(),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setUserName(data.name || "User");
+        setUserRole(data.role || "");
+      } else if (response.status === 401) {
+        console.error('Unauthorized: Session expired');
+        onLogout();
+      } else if (response.status === 403) {
+        console.error('Forbidden: Access denied to /api/employee/me');
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Error details:', errorData);
+      } else {
+        console.error(`Error fetching profile: ${response.status}`);
+      }
+    } catch (err) {
+      console.error('Error fetching user profile:', err);
+    }
+  }, [onLogout]);
+
   // === Effects ===
+  useEffect(() => {
+    fetchUserProfile();
+  }, [fetchUserProfile]);
+
   useEffect(() => {
     if (view === "leaves") fetchLeavesStatus();
     else if (view === "info") fetchInfoData();
@@ -292,6 +336,13 @@ export const AcademicDashboard: React.FC<AcademicDashboardProps> = ({ onLogout }
   const performanceScore = performance?.rating ? (performance.rating >= 4 ? "A-" : "B+") : "N/A";
   const totalDeductionAmount = deductions.reduce((sum: number, d: any) => sum + (d.amount || 0), 0);
 
+  // Check if user has dean/upper board authorization
+  const isDeanAuthorized = userRole && (
+    userRole.toLowerCase().includes('dean') ||
+    userRole.toLowerCase().includes('pres') ||
+    userRole.toLowerCase().includes('vice')
+  );
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-950 p-6">
       <div className="max-w-5xl mx-auto">
@@ -301,7 +352,7 @@ export const AcademicDashboard: React.FC<AcademicDashboardProps> = ({ onLogout }
             <span className="text-cyan-400">Academic</span> Portal
           </h1>
           <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-400">Welcome, Dr. Youssef</span>
+            <span className="text-sm text-gray-400">Welcome, Dr. {userName}</span>
             <button
               onClick={onLogout}
               className="text-sm bg-red-500/20 text-red-400 px-4 py-2 rounded-lg hover:bg-red-500/30 transition"
@@ -313,7 +364,7 @@ export const AcademicDashboard: React.FC<AcademicDashboardProps> = ({ onLogout }
 
         {/* Tabs */}
         <div className="flex gap-4 mb-6 border-b border-gray-700 pb-2">
-          {['leaves', 'info', 'dean'].map((tab) => (
+          {['leaves', 'info', ...(isDeanAuthorized ? ['dean'] : [])].map((tab) => (
             <button
               key={tab}
               onClick={() => setView(tab as AcademicView)}
@@ -545,15 +596,6 @@ export const AcademicDashboard: React.FC<AcademicDashboardProps> = ({ onLogout }
           {/* ===== VIEW: DEAN ===== */}
           {view === "dean" && (
             <div>
-              {/* Header Section */}
-              <div className="mb-6 p-4 bg-yellow-900/20 border border-yellow-700/50 rounded-lg flex items-center gap-3">
-                <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
-                <div>
-                  <p className="text-yellow-200 text-sm font-medium">Restricted Area: Dean Authorization Required</p>
-                  <p className="text-yellow-200/60 text-xs mt-1">Process Annual and Unpaid leave requests from your department</p>
-                </div>
-              </div>
-
               {/* Error Display */}
               {error && (
                 <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-300 text-sm">
@@ -672,8 +714,8 @@ export const AcademicDashboard: React.FC<AcademicDashboardProps> = ({ onLogout }
                           {/* Show processed status message if not pending */}
                           {leave.status && leave.status.toLowerCase() !== 'pending' && (
                             <div className={`text-center py-2 rounded text-sm ${leave.status.toLowerCase() === 'approved'
-                                ? 'bg-green-500/10 text-green-400'
-                                : 'bg-red-500/10 text-red-400'
+                              ? 'bg-green-500/10 text-green-400'
+                              : 'bg-red-500/10 text-red-400'
                               }`}>
                               Already {leave.status}
                             </div>
