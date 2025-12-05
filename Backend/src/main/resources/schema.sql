@@ -231,6 +231,9 @@ CREATE TABLE Employee_Approve_Leave
 GO
 
 
+EXEC createAllTables;
+GO
+
 CREATE OR ALTER PROC dropAllTables
 AS
 
@@ -409,7 +412,9 @@ GO
 -- d)
 CREATE OR ALTER VIEW allRejectedMedicals
 AS
-    select M.*
+    select M.*, leave.date_of_request AS date_of_request,
+           leave.start_date, leave.end_date,
+           leave.final_approval_status
     FROM medical_Leave M INNER JOIN leave
         ON M.request_ID = leave.request_ID
     where leave.final_approval_status='rejected';
