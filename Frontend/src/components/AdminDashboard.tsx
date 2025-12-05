@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import type { EmployeeProfile, RejectedLeave, PerformanceRecord } from '../types';
 import { MOCK_EMPLOYEES, mapMockEmployeesToProfiles } from '../types';
 import { Users, Calendar, Settings, RefreshCw, X, ArrowRight } from 'lucide-react';
+import { showError, showSuccess } from '../utils/toast';
 
 type AdminTab = 'employees' | 'attendance' | 'holidays' | 'general';
 
@@ -68,7 +69,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
       setError(message);
       setTimeout(() => setError(null), 5000);
     } else {
-      alert(message);
+      showSuccess(message);
     }
   };
 
@@ -212,11 +213,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
         setShowYesterdayModal(true);
       } else {
         console.error("Failed to fetch yesterday's attendance:", response.statusText);
-        alert(`Failed to fetch yesterday's attendance: ${response.statusText}`);
+        showError(`Failed to fetch yesterday's attendance: ${response.statusText}`);
       }
     } catch (error) {
       console.error('Network error fetching yesterday\'s attendance:', error);
-      alert('Network error occurred while fetching yesterday\'s attendance.');
+      showError('Network error occurred while fetching yesterday\'s attendance.');
     }
   }, []);
 
@@ -682,7 +683,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                         className="w-24 bg-gray-800 border border-gray-600 rounded p-2 text-white text-sm"
                       />
                       <button onClick={() => {
-                        if (!targetDayOffEmpId) return alert("Enter Employee ID");
+                        if (!targetDayOffEmpId) return showError("Enter Employee ID");
                         handleSimplePostAction('/api/admin/remove-dayoff', 'Day Off Removal', { employee_id: Number(targetDayOffEmpId) });
                       }} className="flex-1 p-2 bg-gray-800 hover:bg-gray-700 rounded text-sm text-gray-300 border border-gray-600">
                         Remove Day Off
@@ -729,7 +730,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                         className="w-24 bg-gray-800 border border-gray-600 rounded p-2 text-white text-sm"
                       />
                       <button onClick={() => {
-                        if (!targetLeaveEmpId) return alert("Enter Employee ID");
+                        if (!targetLeaveEmpId) return showError("Enter Employee ID");
                         handleSimplePostAction('/api/admin/remove-approved-leaves', 'Approved Leaves Removal', { employee_id: Number(targetLeaveEmpId) });
                       }} className="flex-1 bg-red-700/50 border border-red-600 hover:bg-red-700/70 text-red-300 py-2 rounded transition">
                         Clear Approved Leaves

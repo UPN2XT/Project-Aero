@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { showSuccess } from '../utils/toast';
 
 // Types matching the backend HR DTOs
 interface ManagedEmployee {
@@ -54,7 +55,7 @@ export const HRDashboard: React.FC<HRDashboardProps> = ({ onLogout }) => {
       setError(message);
       setTimeout(() => setError(null), 5000);
     } else {
-      alert(message);
+      showSuccess(message);
     }
   };
 

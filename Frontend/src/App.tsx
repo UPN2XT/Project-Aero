@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Toaster } from 'react-hot-toast';
 import type { UserRole } from './types';
 import { Login } from './components/Login';
 import { AdminDashboard } from './components/AdminDashboard';
@@ -57,6 +58,17 @@ export const App: React.FC = () => {
 
   return (
     <div className="relative">
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: '#1f2937',
+            color: '#fff',
+            border: '1px solid #374151',
+          },
+        }}
+      />
       {renderContent()}
     </div>
   );

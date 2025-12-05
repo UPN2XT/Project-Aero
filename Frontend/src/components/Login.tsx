@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Shield, User, Lock, LogIn, Building2, GraduationCap, Users, Sparkles } from 'lucide-react';
 import type { UserRole } from '../types';
+import { showError } from '../utils/toast';
 
 interface LoginProps {
   onLogin: (role: UserRole) => void;
@@ -55,7 +56,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
     e.preventDefault();
 
     if (!username || !password || !role) {
-      alert("Please enter credentials");
+      showError("Please enter credentials");
       return;
     }
 
@@ -96,7 +97,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
           }, 1500);
         } else {
           setIsLoading(false);
-          alert("Login succeeded, but no authorization token received.");
+          showError("Login succeeded, but no authorization token received.");
         }
       } else {
         setIsLoading(false);
@@ -107,11 +108,11 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
         } catch (e) {
           message = `Authentication failed (Status ${response.status})`;
         }
-        alert(`Login failed: ${message}`);
+        showError(`Login failed: ${message}`);
       }
     } catch (error) {
       setIsLoading(false);
-      alert('A network error occurred. Please check the API server.');
+      showError('A network error occurred. Please check the API server.');
     }
   };
 
