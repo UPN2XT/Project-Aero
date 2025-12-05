@@ -267,8 +267,8 @@ export const HRDashboard: React.FC<HRDashboardProps> = ({ onLogout }) => {
                   <td className="py-3 px-2 text-gray-300">{approval.dateOfRequest}</td>
                   <td className="py-3 px-2">
                     <span className={`px-2 py-1 rounded-full text-xs ${approval.status === 'Pending' ? 'bg-yellow-500/20 text-yellow-300' :
-                        approval.status === 'Approved' ? 'bg-green-500/20 text-green-300' :
-                          'bg-red-500/20 text-red-300'
+                      approval.status === 'Approved' ? 'bg-green-500/20 text-green-300' :
+                        'bg-red-500/20 text-red-300'
                       }`}>
                       {approval.status}
                     </span>
@@ -429,8 +429,8 @@ export const HRDashboard: React.FC<HRDashboardProps> = ({ onLogout }) => {
             key={tab}
             onClick={() => setActiveTab(tab)}
             className={`px-4 py-2 rounded-lg font-medium transition ${activeTab === tab
-                ? 'bg-cyan-600 text-white'
-                : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+              ? 'bg-cyan-600 text-white'
+              : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
               }`}
           >
             {tab.charAt(0).toUpperCase() + tab.slice(1)}
