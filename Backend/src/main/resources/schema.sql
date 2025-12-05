@@ -527,7 +527,6 @@ END;
 GO
 
 
-
 CREATE OR ALTER PROCEDURE Initiate_Attendance
 AS
 BEGIN

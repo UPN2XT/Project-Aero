@@ -23,6 +23,7 @@ public class AeroApplication {
             } catch (Exception e) {
                 System.err.println("❌ Error executing dbo.createAllTables: " + e.getMessage());
             }
+            //Create_Holiday
 
             try {
                 // This executes the stored procedure using standard T-SQL syntax
@@ -37,6 +38,14 @@ public class AeroApplication {
                 System.out.println("✅ dbo.init_values executed successfully.");
             } catch (Exception e) {
                 System.err.println("❌ Error executing dbo.init_values: " + e.getMessage());
+            }
+
+            try {
+                // This executes the stored procedure using standard T-SQL syntax
+                jdbcTemplate.execute("EXEC dbo.Create_Holiday");
+                System.out.println("✅ dbo.Create_Holiday executed successfully.");
+            } catch (Exception e) {
+                System.err.println("❌ Error executing dbo.Create_Holiday: " + e.getMessage());
             }
         };
     }

@@ -77,7 +77,7 @@ public class AdminRepoImp implements AdminRepo {
 
     @Override
     public void Intitiate_Attendance() {
-        String sql = "EXEC Intitiate_Attendance";
+        String sql = "EXEC Initiate_Attendance";
         jdbcTemplate.update(sql);
     }
 

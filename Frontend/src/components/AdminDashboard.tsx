@@ -2,18 +2,22 @@ import React, { useState, useEffect, useCallback } from 'react';
 import type { EmployeeProfile, RejectedLeave, PerformanceRecord } from '../types';
 import { MOCK_EMPLOYEES, mapMockEmployeesToProfiles } from '../types';
 
-type AdminTab = 'employees' | 'attendance' | 'general';
+type AdminTab = 'employees' | 'attendance' | 'holidays' | 'general';
 
 interface AdminDashboardProps {
   onLogout: () => void;
 }
 
 const API_BASE_URL = '';
-const getAuthHeaders = () => {
+
+const getAuthHeaders = (): HeadersInit => {
   const token = localStorage.getItem('jwtToken');
+  if (!token) {
+    console.warn('No JWT token found in localStorage!');
+  }
   return {
     'Content-Type': 'application/json',
-    ...(token && { 'Authorization': `Bearer ${token}` }),
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
   };
 };
 
@@ -21,23 +25,50 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
   const [activeTab, setActiveTab] = useState<AdminTab>('employees');
   const [employees, setEmployees] = useState<EmployeeProfile[]>([]);
   const [rejectedLeaves, setRejectedLeaves] = useState<RejectedLeave[]>([]);
+  const [performanceRecords, setPerformanceRecords] = useState<PerformanceRecord[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Attendance modal state
   const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
-  const [employeeIdToUpdate, setEmployeeIdToUpdate] = useState<number | null>(null);
-  const [newCheckIn, setNewCheckIn] = useState('09:00:00');
-  const [newCheckOut, setNewCheckOut] = useState('17:00:00');
+  const [employeeIdToUpdate, setEmployeeIdToUpdate] = useState<string>('');
+  const [newCheckIn, setNewCheckIn] = useState('09:00');
+  const [newCheckOut, setNewCheckOut] = useState('17:00');
+
+  // Holiday form state
   const [newHolidayName, setNewHolidayName] = useState('');
   const [newHolidayDateFrom, setNewHolidayDateFrom] = useState('');
   const [newHolidayDateTo, setNewHolidayDateTo] = useState('');
 
+  // Replace employee form state
+  const [replaceEmp1Id, setReplaceEmp1Id] = useState('');
+  const [replaceEmp2Id, setReplaceEmp2Id] = useState('');
+  const [replaceFromDate, setReplaceFromDate] = useState('');
+  const [replaceToDate, setReplaceToDate] = useState('');
 
-  const handleAction = (action: string) => alert(`${action}`);
+  // Remove day off / approved leaves state
+  const [removeDayOffEmpId, setRemoveDayOffEmpId] = useState('');
+  const [removeApprovedLeavesEmpId, setRemoveApprovedLeavesEmpId] = useState('');
+
+  const showMessage = (message: string, isError = false) => {
+    if (isError) {
+      setError(message);
+      setTimeout(() => setError(null), 5000);
+    } else {
+      alert(message);
+    }
+  };
 
   const getStatusClass = (status: string) => {
-    if (status === 'Active') return 'bg-green-500/20 text-green-300';
+    const statusLower = status?.toLowerCase() || '';
+    if (statusLower === 'active') return 'bg-green-500/20 text-green-300';
+    if (statusLower === 'onleave' || statusLower === 'on leave') return 'bg-yellow-500/20 text-yellow-300';
     return 'bg-red-500/20 text-red-300';
   };
 
   const fetchAllEmployees = useCallback(async () => {
+    setLoading(true);
+    setError(null);
     try {
       const response = await fetch(`${API_BASE_URL}/api/admin/all-employee-profiles`, {
         method: 'POST',
@@ -45,25 +76,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
       });
       if (response.ok) {
         const text = await response.text();
-        console.log("Raw response from employees:", text);
-        try {
-          const data: EmployeeProfile[] = text ? JSON.parse(text) : [];
-          setEmployees(data);
-        } catch (e) {
-          console.error("JSON Parse Error:", e);
-          setEmployees([]);
-        }
+        const data: EmployeeProfile[] = text ? JSON.parse(text) : [];
+        setEmployees(data);
+      } else if (response.status === 401) {
+        showMessage('Session expired. Please log in again.', true);
+        onLogout();
       } else {
-        console.error("Failed to fetch employees:", response.statusText);
+        showMessage('Failed to fetch employees. Using mock data.', true);
         setEmployees(mapMockEmployeesToProfiles(MOCK_EMPLOYEES));
       }
-    } catch (error) {
-      console.error('Network error fetching employees:', error);
+    } catch (err) {
+      console.error('Network error fetching employees:', err);
+      showMessage('Network error. Using mock data.', true);
       setEmployees(mapMockEmployeesToProfiles(MOCK_EMPLOYEES));
+    } finally {
+      setLoading(false);
     }
-  }, []);
+  }, [onLogout]);
 
   const fetchRejectedLeaves = useCallback(async () => {
+    setLoading(true);
     try {
       const response = await fetch(`${API_BASE_URL}/api/admin/rejected-medicals`, {
         method: 'POST',
@@ -72,17 +104,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
       if (response.ok) {
         const data: RejectedLeave[] = await response.json();
         setRejectedLeaves(data);
+      } else if (response.status === 401) {
+        showMessage('Session expired. Please log in again.', true);
+        onLogout();
       } else {
-        console.error("Failed to fetch rejected leaves:", response.statusText);
         setRejectedLeaves([]);
       }
-    } catch (error) {
-      console.error('Network error fetching rejected leaves:', error);
+    } catch (err) {
+      console.error('Network error fetching rejected leaves:', err);
       setRejectedLeaves([]);
+    } finally {
+      setLoading(false);
     }
-  }, []);
+  }, [onLogout]);
 
   const fetchWinterPerformance = useCallback(async () => {
+    setLoading(true);
     try {
       const response = await fetch(`${API_BASE_URL}/api/admin/winter-performance`, {
         method: 'POST',
@@ -90,106 +127,29 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
       });
       if (response.ok) {
         const data: PerformanceRecord[] = await response.json();
-        alert(`Fetched ${data.length} Winter Performance Records. Check the console for details.`);
-        console.log("Winter Performance Data:", data);
+        setPerformanceRecords(data);
+        showMessage(`Fetched ${data.length} Winter Performance Records.`);
+      } else if (response.status === 401) {
+        showMessage('Session expired. Please log in again.', true);
+        onLogout();
       } else {
-        console.error("Failed to fetch winter performance:", response.statusText);
-        alert(`Failed to fetch Winter Performance. Status: ${response.status}`);
+        showMessage('Failed to fetch performance records.', true);
       }
-    } catch (error) {
-      console.error('Network error fetching winter performance:', error);
-      alert('A network error occurred while fetching performance data.');
+    } catch (err) {
+      console.error('Network error fetching winter performance:', err);
+      showMessage('Network error while fetching performance data.', true);
+    } finally {
+      setLoading(false);
     }
-  }, []);
+  }, [onLogout]);
 
   useEffect(() => {
-    if (activeTab === 'employees') {
-      fetchAllEmployees();
-    }
-    if (activeTab === 'attendance') {
-      fetchRejectedLeaves();
-    }
-  }, [activeTab, fetchAllEmployees, fetchRejectedLeaves]);
+    if (activeTab === 'employees') fetchAllEmployees();
+    if (activeTab === 'attendance') fetchRejectedLeaves();
+    if (activeTab === 'general') fetchWinterPerformance();
+  }, [activeTab, fetchAllEmployees, fetchRejectedLeaves, fetchWinterPerformance]);
 
-  const handleInitiateAttendance = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/admin/initiate-attendance`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        handleAction(`Daily attendance initiated successfully! Message: ${result.message || 'No message.'}`);
-      } else {
-        const error = await response.json();
-        handleAction(`Failed to initiate attendance: ${error.message || response.statusText}`);
-      }
-    } catch (error) {
-      handleAction('A network error occurred while initiating attendance.');
-    }
-  };
-
-  const handleAddHoliday = async () => {
-    if (!newHolidayName || !newHolidayDateFrom || !newHolidayDateTo) {
-      alert("Please fill in all holiday details.");
-      return;
-    }
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/admin/add-holiday`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({
-          holiday_name: newHolidayName,
-          from_Date: newHolidayDateFrom,
-          to_Date: newHolidayDateTo,
-        }),
-      });
-
-      if (response.ok) {
-        handleAction(`Holiday '${newHolidayName}' added successfully!`);
-        setNewHolidayName('');
-        setNewHolidayDateFrom('');
-        setNewHolidayDateTo('');
-      } else {
-        const error = await response.json();
-        handleAction(`Failed to add holiday: ${error.message || response.statusText}`);
-      }
-    } catch (error) {
-      handleAction('A network error occurred while adding the holiday.');
-    }
-  };
-
-  const handleUpdateAttendance = async () => {
-    if (employeeIdToUpdate === null) return;
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/admin/update-attendance`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({
-          check_in_time: newCheckIn,
-          check_out_time: newCheckOut,
-          Employee_id: employeeIdToUpdate,
-        }),
-      });
-
-      if (response.ok) {
-        handleAction(`Attendance updated for employee ID ${employeeIdToUpdate}.`);
-      } else {
-        const error = await response.json();
-        handleAction(`Failed to update attendance: ${error.message || response.statusText}`);
-      }
-    } catch (error) {
-      handleAction('A network error occurred while updating attendance.');
-    } finally {
-      setIsAttendanceModalOpen(false);
-      setEmployeeIdToUpdate(null);
-    }
-  };
-
-  const handleSimplePostAction = async (endpoint: string, actionName: string, body?: any) => {
+  const handleSimplePostAction = async (endpoint: string, actionName: string, body?: object) => {
     try {
       const response = await fetch(`${API_BASE_URL}${endpoint}`, {
         method: 'POST',
@@ -197,71 +157,144 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
         ...(body && { body: JSON.stringify(body) }),
       });
 
-      // --- SAFE RESPONSE HANDLING ---
-      const contentType = response.headers.get("content-type");
-      const isJson = contentType && contentType.includes("application/json");
-
       if (response.ok) {
-        let message = 'Operation completed successfully!';
-
-        if (isJson) {
-          const result = await response.json();
-          message = result.message || message;
-        }
-
-        handleAction(`${actionName} completed successfully! Message: ${message}`);
+        showMessage(`${actionName} completed successfully!`);
+        return true;
+      } else if (response.status === 401) {
+        showMessage('Session expired. Please log in again.', true);
+        onLogout();
       } else {
-        let message = response.statusText;
-
-        if (isJson) {
-          const error = await response.json();
-          message = error.message || message;
-        }
-        handleAction(`Failed to perform ${actionName}: ${message}`);
+        const errorData = await response.json().catch(() => ({}));
+        showMessage(`Failed: ${errorData.message || response.statusText}`, true);
       }
-    } catch (error) {
-      handleAction(`A network error or parse error occurred during ${actionName}.`);
+    } catch (err) {
+      showMessage(`Network error during ${actionName}.`, true);
+    }
+    return false;
+  };
+
+  const handleInitiateAttendance = () => handleSimplePostAction('/api/admin/initiate-attendance', 'Daily Attendance Initiation');
+
+  const handleAddHoliday = async () => {
+    if (!newHolidayName || !newHolidayDateFrom || !newHolidayDateTo) {
+      showMessage('Please fill in all holiday details.', true);
+      return;
+    }
+    const success = await handleSimplePostAction('/api/admin/add-holiday', `Add Holiday '${newHolidayName}'`, {
+      holiday_name: newHolidayName,
+      from_Date: newHolidayDateFrom,
+      to_Date: newHolidayDateTo,
+    });
+    if (success) {
+      setNewHolidayName('');
+      setNewHolidayDateFrom('');
+      setNewHolidayDateTo('');
     }
   };
-  const renderAttendanceUpdateModal = () => {
+
+  const handleUpdateAttendance = async () => {
+    if (!employeeIdToUpdate) {
+      showMessage('Please enter an Employee ID.', true);
+      return;
+    }
+    const success = await handleSimplePostAction('/api/admin/update-attendance', `Update Attendance for ID ${employeeIdToUpdate}`, {
+      Employee_id: parseInt(employeeIdToUpdate),
+      check_in_time: newCheckIn + ':00',
+      check_out_time: newCheckOut + ':00',
+    });
+    if (success) {
+      setIsAttendanceModalOpen(false);
+      setEmployeeIdToUpdate('');
+    }
+  };
+
+  const handleReplaceEmployee = async () => {
+    if (!replaceEmp1Id || !replaceEmp2Id || !replaceFromDate || !replaceToDate) {
+      showMessage('Please fill in all replacement details.', true);
+      return;
+    }
+    const success = await handleSimplePostAction('/api/admin/replace-employee', 'Employee Replacement', {
+      Emp1_ID: parseInt(replaceEmp1Id),
+      Emp2_ID: parseInt(replaceEmp2Id),
+      from_date: replaceFromDate,
+      to_date: replaceToDate,
+    });
+    if (success) {
+      setReplaceEmp1Id('');
+      setReplaceEmp2Id('');
+      setReplaceFromDate('');
+      setReplaceToDate('');
+    }
+  };
+
+  const handleRemoveDayOff = async () => {
+    if (!removeDayOffEmpId) {
+      showMessage('Please enter an Employee ID.', true);
+      return;
+    }
+    const success = await handleSimplePostAction('/api/admin/remove-dayoff', 'Remove Day Off', {
+      employee_id: parseInt(removeDayOffEmpId),
+    });
+    if (success) setRemoveDayOffEmpId('');
+  };
+
+  const handleRemoveApprovedLeaves = async () => {
+    if (!removeApprovedLeavesEmpId) {
+      showMessage('Please enter an Employee ID.', true);
+      return;
+    }
+    const success = await handleSimplePostAction('/api/admin/remove-approved-leaves', 'Remove Approved Leaves', {
+      employee_id: parseInt(removeApprovedLeavesEmpId),
+    });
+    if (success) setRemoveApprovedLeavesEmpId('');
+  };
+
+  const renderAttendanceModal = () => {
     if (!isAttendanceModalOpen) return null;
-
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-        <div className="bg-gray-800 p-6 rounded-xl shadow-2xl w-full max-w-md border border-cyan-700/50">
-          <h3 className="text-xl font-bold text-white mb-4">Update Attendance for ID: {employeeIdToUpdate}</h3>
-
+      <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50">
+        <div className="bg-gray-800 p-6 rounded-xl shadow-2xl w-full max-w-md border border-gray-700">
+          <h3 className="text-xl font-bold text-cyan-400 mb-4">Update Attendance</h3>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-400 mb-1">Check-in Time</label>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Employee ID</label>
+              <input
+                type="number"
+                value={employeeIdToUpdate}
+                onChange={(e) => setEmployeeIdToUpdate(e.target.value)}
+                className="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:border-cyan-500 focus:outline-none"
+                placeholder="Enter employee ID"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Check-in Time</label>
               <input
                 type="time"
                 value={newCheckIn}
                 onChange={(e) => setNewCheckIn(e.target.value)}
-                className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white"
+                className="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:border-cyan-500 focus:outline-none"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-400 mb-1">Check-out Time</label>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Check-out Time</label>
               <input
                 type="time"
                 value={newCheckOut}
                 onChange={(e) => setNewCheckOut(e.target.value)}
-                className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white"
+                className="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:border-cyan-500 focus:outline-none"
               />
             </div>
           </div>
-
           <div className="flex justify-end gap-3 mt-6">
             <button
               onClick={() => setIsAttendanceModalOpen(false)}
-              className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-white"
+              className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-white transition"
             >
               Cancel
             </button>
             <button
               onClick={handleUpdateAttendance}
-              className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 rounded-lg text-white font-semibold"
+              className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 rounded-lg text-white font-semibold transition"
             >
               Update Record
             </button>
@@ -271,223 +304,383 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
     );
   };
 
+  const renderEmployeesTab = () => (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h3 className="text-xl font-bold text-cyan-400">All Employee Profiles</h3>
+        <button
+          onClick={fetchAllEmployees}
+          className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-white text-sm transition"
+        >
+          Refresh
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="text-center py-8 text-gray-400">Loading...</div>
+      ) : employees.length === 0 ? (
+        <div className="text-center py-8 text-gray-400">No employees found</div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="text-left text-gray-400 border-b border-gray-700">
+                <th className="pb-3 px-2">ID</th>
+                <th className="pb-3 px-2">Name</th>
+                <th className="pb-3 px-2">Email</th>
+                <th className="pb-3 px-2">Contract</th>
+                <th className="pb-3 px-2">Day Off</th>
+                <th className="pb-3 px-2">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {employees.map((emp) => (
+                <tr key={emp.employee_ID} className="border-b border-gray-800 hover:bg-gray-800/50">
+                  <td className="py-3 px-2 text-white">{emp.employee_ID}</td>
+                  <td className="py-3 px-2 text-white font-medium">{emp.first_name} {emp.last_name}</td>
+                  <td className="py-3 px-2 text-gray-300">{emp.email}</td>
+                  <td className="py-3 px-2 text-gray-300">{emp.type_of_contract}</td>
+                  <td className="py-3 px-2 text-gray-300">{emp.official_day_off}</td>
+                  <td className="py-3 px-2">
+                    <span className={`px-2 py-1 rounded-full text-xs ${getStatusClass(emp.employment_status)}`}>
+                      {emp.employment_status}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Bulk Actions */}
+      <div className="grid md:grid-cols-2 gap-4 pt-4 border-t border-gray-700">
+        <div className="bg-gray-800/50 p-4 rounded-xl border border-gray-700">
+          <h4 className="text-sm font-semibold text-gray-300 mb-3">Remove Day Off</h4>
+          <div className="flex gap-2">
+            <input
+              type="number"
+              value={removeDayOffEmpId}
+              onChange={(e) => setRemoveDayOffEmpId(e.target.value)}
+              className="flex-1 px-3 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white text-sm"
+              placeholder="Employee ID"
+            />
+            <button
+              onClick={handleRemoveDayOff}
+              className="px-4 py-2 bg-orange-600 hover:bg-orange-500 rounded-lg text-white text-sm transition"
+            >
+              Remove
+            </button>
+          </div>
+        </div>
+        <div className="bg-gray-800/50 p-4 rounded-xl border border-gray-700">
+          <h4 className="text-sm font-semibold text-gray-300 mb-3">Remove Approved Leaves</h4>
+          <div className="flex gap-2">
+            <input
+              type="number"
+              value={removeApprovedLeavesEmpId}
+              onChange={(e) => setRemoveApprovedLeavesEmpId(e.target.value)}
+              className="flex-1 px-3 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white text-sm"
+              placeholder="Employee ID"
+            />
+            <button
+              onClick={handleRemoveApprovedLeaves}
+              className="px-4 py-2 bg-red-600 hover:bg-red-500 rounded-lg text-white text-sm transition"
+            >
+              Remove
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <button
+        onClick={() => handleSimplePostAction('/api/admin/remove-deductions', 'Remove All Deductions')}
+        className="w-full px-4 py-2 bg-red-600/20 hover:bg-red-600/30 border border-red-600 rounded-lg text-red-300 text-sm transition"
+      >
+        Remove All Deductions (Resigned Employees)
+      </button>
+    </div>
+  );
+
+  const renderAttendanceTab = () => (
+    <div className="space-y-6">
+      <h3 className="text-xl font-bold text-cyan-400">Attendance Management</h3>
+
+      {/* Daily Operations */}
+      <div className="grid md:grid-cols-2 gap-4">
+        <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700">
+          <h4 className="text-lg font-semibold text-white mb-4">Daily Operations</h4>
+          <div className="space-y-3">
+            <button
+              onClick={handleInitiateAttendance}
+              className="w-full px-4 py-2 bg-cyan-600 hover:bg-cyan-500 rounded-lg text-white font-semibold transition"
+            >
+              Initiate Today's Attendance
+            </button>
+            <button
+              onClick={() => setIsAttendanceModalOpen(true)}
+              className="w-full px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-white transition"
+            >
+              Update Employee Attendance
+            </button>
+          </div>
+        </div>
+
+        <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700">
+          <h4 className="text-lg font-semibold text-white mb-4">Rejected Medical Leaves</h4>
+          <button
+            onClick={fetchRejectedLeaves}
+            className="w-full px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-white transition mb-2"
+          >
+            Refresh ({rejectedLeaves.length} records)
+          </button>
+        </div>
+      </div>
+
+      {/* Rejected Leaves Table */}
+      {rejectedLeaves.length > 0 && (
+        <div className="bg-red-900/20 p-4 rounded-xl border border-red-700">
+          <h4 className="text-lg font-semibold text-red-300 mb-4">Rejected Medical Leaves</h4>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="text-left text-red-400 border-b border-red-700">
+                  <th className="pb-3 px-2">Request ID</th>
+                  <th className="pb-3 px-2">Employee ID</th>
+                  <th className="pb-3 px-2">Start Date</th>
+                  <th className="pb-3 px-2">End Date</th>
+                  <th className="pb-3 px-2">Insurance</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rejectedLeaves.map((leave) => (
+                  <tr key={leave.request_ID} className="border-b border-red-800/50">
+                    <td className="py-3 px-2 text-red-100">{leave.request_ID}</td>
+                    <td className="py-3 px-2 text-red-100">{leave.emp_ID}</td>
+                    <td className="py-3 px-2 text-red-200">{leave.start_date}</td>
+                    <td className="py-3 px-2 text-red-200">{leave.end_date}</td>
+                    <td className="py-3 px-2">
+                      <span className={`px-2 py-1 rounded-full text-xs ${leave.insurance_status ? 'bg-green-500/20 text-green-300' : 'bg-gray-500/20 text-gray-300'}`}>
+                        {leave.insurance_status ? 'Yes' : 'No'}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  const renderHolidaysTab = () => (
+    <div className="space-y-6">
+      <h3 className="text-xl font-bold text-cyan-400">Holiday Management</h3>
+
+      {/* Add Holiday Form */}
+      <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700 max-w-2xl">
+        <h4 className="text-lg font-semibold text-white mb-4">Add New Holiday</h4>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">Holiday Name</label>
+            <input
+              type="text"
+              value={newHolidayName}
+              onChange={(e) => setNewHolidayName(e.target.value)}
+              className="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:border-cyan-500 focus:outline-none"
+              placeholder="e.g. National Day"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">From Date</label>
+              <input
+                type="date"
+                value={newHolidayDateFrom}
+                onChange={(e) => setNewHolidayDateFrom(e.target.value)}
+                className="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:border-cyan-500 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">To Date</label>
+              <input
+                type="date"
+                value={newHolidayDateTo}
+                onChange={(e) => setNewHolidayDateTo(e.target.value)}
+                className="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:border-cyan-500 focus:outline-none"
+              />
+            </div>
+          </div>
+          <button
+            onClick={handleAddHoliday}
+            className="w-full px-4 py-2 bg-green-600 hover:bg-green-500 rounded-lg text-white font-semibold transition"
+          >
+            Add Holiday
+          </button>
+        </div>
+      </div>
+
+      <button
+        onClick={() => handleSimplePostAction('/api/admin/remove-holiday', 'Remove Expired Holidays')}
+        className="px-4 py-2 bg-red-600/20 hover:bg-red-600/30 border border-red-600 rounded-lg text-red-300 transition"
+      >
+        Remove Expired Holidays
+      </button>
+    </div>
+  );
+
+  const renderGeneralTab = () => (
+    <div className="space-y-6">
+      <h3 className="text-xl font-bold text-cyan-400">General Management</h3>
+
+      {/* Performance Records */}
+      <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700">
+        <div className="flex justify-between items-center mb-4">
+          <h4 className="text-lg font-semibold text-white">Winter Performance Records</h4>
+          <button
+            onClick={fetchWinterPerformance}
+            className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-white text-sm transition"
+          >
+            Refresh
+          </button>
+        </div>
+        {performanceRecords.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="text-left text-gray-400 border-b border-gray-700">
+                  <th className="pb-3 px-2">ID</th>
+                  <th className="pb-3 px-2">Employee ID</th>
+                  <th className="pb-3 px-2">Rating</th>
+                  <th className="pb-3 px-2">Semester</th>
+                  <th className="pb-3 px-2">Comments</th>
+                </tr>
+              </thead>
+              <tbody>
+                {performanceRecords.map((record) => (
+                  <tr key={record.performance_ID} className="border-b border-gray-800 hover:bg-gray-800/50">
+                    <td className="py-3 px-2 text-white">{record.performance_ID}</td>
+                    <td className="py-3 px-2 text-white">{record.emp_ID}</td>
+                    <td className="py-3 px-2">
+                      <span className="text-yellow-400">{'★'.repeat(record.rating)}{'☆'.repeat(5 - record.rating)}</span>
+                    </td>
+                    <td className="py-3 px-2 text-gray-300">{record.semester}</td>
+                    <td className="py-3 px-2 text-gray-300 truncate max-w-xs">{record.comments}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="text-center py-8 text-gray-400">No performance records found</div>
+        )}
+      </div>
+
+      {/* Employee Replacement */}
+      <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700 max-w-2xl">
+        <h4 className="text-lg font-semibold text-white mb-4">Employee Replacement</h4>
+        <p className="text-sm text-gray-400 mb-4">Assign a replacement employee for a specific period.</p>
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Employee to Replace</label>
+              <input
+                type="number"
+                value={replaceEmp1Id}
+                onChange={(e) => setReplaceEmp1Id(e.target.value)}
+                className="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:border-cyan-500 focus:outline-none"
+                placeholder="Employee ID"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Replacement Employee</label>
+              <input
+                type="number"
+                value={replaceEmp2Id}
+                onChange={(e) => setReplaceEmp2Id(e.target.value)}
+                className="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:border-cyan-500 focus:outline-none"
+                placeholder="Replacement ID"
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">From Date</label>
+              <input
+                type="date"
+                value={replaceFromDate}
+                onChange={(e) => setReplaceFromDate(e.target.value)}
+                className="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:border-cyan-500 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">To Date</label>
+              <input
+                type="date"
+                value={replaceToDate}
+                onChange={(e) => setReplaceToDate(e.target.value)}
+                className="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:border-cyan-500 focus:outline-none"
+              />
+            </div>
+          </div>
+          <button
+            onClick={handleReplaceEmployee}
+            className="w-full px-4 py-2 bg-orange-600 hover:bg-orange-500 rounded-lg text-white font-semibold transition"
+          >
+            Replace Employee
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-950 p-6 text-gray-100">
-      {renderAttendanceUpdateModal()}
-      <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-8 bg-gray-800/50 p-4 rounded-2xl border border-gray-700 backdrop-blur-md">
-          <h1 className="text-2xl font-bold text-white"><span className="text-cyan-400">Admin</span> Dashboard</h1>
-          <button onClick={onLogout} className="text-sm bg-red-500/20 text-red-400 px-4 py-2 rounded-lg hover:bg-red-500/30 transition">Logout</button>
+      {renderAttendanceModal()}
+
+      {/* Header */}
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-3xl font-bold">
+          <span className="text-cyan-400">Admin</span> Dashboard
+        </h1>
+        <button
+          onClick={onLogout}
+          className="px-4 py-2 bg-red-600 hover:bg-red-500 rounded-lg text-white font-semibold transition"
+        >
+          Logout
+        </button>
+      </div>
+
+      {/* Error Banner */}
+      {error && (
+        <div className="mb-6 p-4 bg-red-500/20 border border-red-500 rounded-lg text-red-300">
+          {error}
         </div>
+      )}
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="md:col-span-1 space-y-4">
-            <div className="bg-gray-800/80 p-6 rounded-2xl border border-gray-700">
-              <h3 className="text-lg font-semibold text-cyan-400 mb-4">Quick Actions</h3>
-              <div className="space-y-3">
-                <button
-                  onClick={() => setActiveTab('employees')}
-                  className={`w-full text-left p-3 rounded-xl transition flex items-center gap-3 ${activeTab === 'employees' ? 'bg-cyan-900/50 text-cyan-300 border border-cyan-700/50' : 'hover:bg-gray-700'}`}
-                >
-                  <span className="material-symbols-outlined">group</span> View Employees
-                </button>
-                <button
-                  onClick={() => setActiveTab('attendance')}
-                  className={`w-full text-left p-3 rounded-xl transition flex items-center gap-3 ${activeTab === 'attendance' ? 'bg-cyan-900/50 text-cyan-300 border border-cyan-700/50' : 'hover:bg-gray-700'}`}
-                >
-                  <span className="material-symbols-outlined">calendar_month</span> Attendance
-                </button>
-                <button
-                  onClick={() => setActiveTab('general')}
-                  className={`w-full text-left p-3 rounded-xl transition flex items-center gap-3 ${activeTab === 'general' ? 'bg-cyan-900/50 text-cyan-300 border border-cyan-700/50' : 'hover:bg-gray-700'}`}
-                >
-                  <span className="material-symbols-outlined">settings</span> General Mgmt
-                </button>
-              </div>
-            </div>
-          </div>
+      {/* Tabs */}
+      <div className="flex gap-2 mb-8 flex-wrap">
+        {(['employees', 'attendance', 'holidays', 'general'] as AdminTab[]).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`px-4 py-2 rounded-lg font-medium transition ${activeTab === tab
+                ? 'bg-cyan-600 text-white'
+                : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+              }`}
+          >
+            {tab.charAt(0).toUpperCase() + tab.slice(1)}
+          </button>
+        ))}
+      </div>
 
-          <div className="md:col-span-3 bg-gray-800/80 p-8 rounded-2xl border border-gray-700 min-h-[500px]">
-            {activeTab === 'employees' && (
-              <div>
-                <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-xl font-bold">Employee Profiles ({employees.length} Records)</h2>
-                  <button onClick={fetchAllEmployees} className="bg-gray-700/50 hover:bg-gray-700 px-3 py-1 text-sm rounded-lg border border-gray-600">
-                    <span className="material-symbols-outlined text-sm align-middle mr-1">refresh</span> Refresh Data
-                  </button>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse">
-                    <thead>
-                      <tr className="border-b border-gray-600 text-gray-400 text-sm">
-                        <th className="p-3">ID</th>
-                        <th className="p-3">Name</th>
-                        <th className="p-3">Contract</th>
-                        <th className="p-3">Day Off</th>
-                        <th className="p-3">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="text-gray-200">
-                      {employees.map(emp => (
-                        <tr key={emp.employee_ID} className="border-b border-gray-700/50 hover:bg-gray-700/30 transition">
-                          <td className="p-3">{emp.employee_ID}</td>
-                          <td className="p-3 font-medium">{emp.first_name} {emp.last_name}</td>
-                          <td className="p-3">{emp.type_of_contract}</td>
-                          <td className="p-3">{emp.official_day_off}</td>
-                          <td className="p-3">
-                            <span className={`px-2 py-1 rounded text-xs ${getStatusClass(emp.employment_status)}`}>{emp.employment_status}</span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                <div className="mt-6 p-4 bg-gray-900/50 rounded-xl border border-gray-600">
-                  <h4 className="font-semibold text-gray-300 mb-2">Bulk Management</h4>
-                  <div className="grid grid-cols-2 gap-4">
-                    <button onClick={() => handleSimplePostAction('/api/admin/remove-deductions', 'Deductions Removal')} className="p-2 bg-red-800/50 hover:bg-red-800/70 rounded text-sm text-red-300 border border-red-600">
-                      Remove All Deductions
-                    </button>
-                    <button onClick={() => handleSimplePostAction('/api/admin/remove-dayoff', 'Day Off Removal')} className="p-2 bg-gray-800 hover:bg-gray-700 rounded text-sm text-gray-300 border border-gray-600">
-                      Remove Employee Day Off
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {activeTab === 'attendance' && (
-              <div>
-                <h2 className="text-xl font-bold mb-6">Attendance Management</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="p-5 bg-gray-900 rounded-xl border border-gray-600">
-                    <h4 className="text-cyan-400 font-bold mb-2">Daily Operations</h4>
-                    <button onClick={handleInitiateAttendance} className="w-full mb-2 bg-cyan-700 hover:bg-cyan-600 text-white py-2 rounded transition">
-                      Initiate Today's Records
-                    </button>
-                    <button
-                      onClick={() => {
-                        setEmployeeIdToUpdate(1);
-                        setIsAttendanceModalOpen(true);
-                      }}
-                      className="w-full bg-gray-700 hover:bg-gray-600 text-white py-2 rounded transition"
-                    >
-                      Update Employee Record (Manual)
-                    </button>
-                  </div>
-                  <div className="p-5 bg-gray-900 rounded-xl border border-gray-600">
-                    <h4 className="text-purple-400 font-bold mb-2">Leaves & Clearing</h4>
-                    <button onClick={() => handleSimplePostAction('/api/admin/remove-approved-leaves', 'Approved Leaves Removal')} className="w-full mb-2 bg-red-700/50 border border-red-600 hover:bg-red-700/70 text-red-300 py-2 rounded transition">
-                      Clear Approved Leaves
-                    </button>
-                    <button onClick={fetchRejectedLeaves} className="w-full bg-gray-800 border border-gray-600 hover:bg-gray-700 text-gray-300 py-2 rounded transition">
-                      View Rejected Medical Leaves ({rejectedLeaves.length})
-                    </button>
-                  </div>
-                </div>
-
-                {rejectedLeaves.length > 0 && (
-                  <div className="mt-6 p-4 bg-red-900/20 rounded-xl border border-red-700">
-                    <h3 className="font-semibold text-red-300 mb-3">Rejected Medical Leaves</h3>
-                    <div className="overflow-x-auto max-h-48">
-                      <table className="w-full text-left text-sm">
-                        <thead>
-                          <tr className="border-b border-red-700 text-red-400">
-                            <th className="p-2">ID</th>
-                            <th className="p-2">Employee ID</th>
-                            <th className="p-2">Dates</th>
-                            <th className="p-2">Insurance Status</th>
-                          </tr>
-                        </thead>
-                        <tbody className="text-red-100">
-                          {rejectedLeaves.map(leave => (
-                            <tr key={leave.request_ID} className="border-b border-red-800/50">
-                              <td className="p-2">{leave.request_ID}</td>
-                              <td className="p-2">{leave.emp_ID}</td>
-                              <td className="p-2">{leave.start_date} to {leave.end_date}</td>
-                              <td className="p-2">{leave.insurance_status ? 'Yes' : 'No'}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-
-              </div>
-            )}
-
-            {activeTab === 'general' && (
-              <div className="space-y-6">
-                <div>
-                  <h2 className="text-xl font-bold mb-4">Official Holidays 🗓️</h2>
-                  <div className="flex gap-3 items-end p-4 bg-gray-900/50 rounded-xl border border-gray-600">
-                    <div className="flex-1">
-                      <label className="text-xs text-gray-400">Holiday Name</label>
-                      <input
-                        type="text"
-                        value={newHolidayName}
-                        onChange={(e) => setNewHolidayName(e.target.value)}
-                        className="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white mt-1"
-                        placeholder="e.g. National Day"
-                      />
-                    </div>
-                    <div className="flex-1">
-                      <label className="text-xs text-gray-400">From Date</label>
-                      <input
-                        type="date"
-                        value={newHolidayDateFrom}
-                        onChange={(e) => setNewHolidayDateFrom(e.target.value)}
-                        className="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white mt-1"
-                      />
-                    </div>
-                    <div className="flex-1">
-                      <label className="text-xs text-gray-400">To Date</label>
-                      <input
-                        type="date"
-                        value={newHolidayDateTo}
-                        onChange={(e) => setNewHolidayDateTo(e.target.value)}
-                        className="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white mt-1"
-                      />
-                    </div>
-                    <button onClick={handleAddHoliday} className="bg-green-600 hover:bg-green-500 text-white px-6 py-2 rounded h-10">Add</button>
-                  </div>
-                  <button
-                    onClick={() => handleSimplePostAction('/api/admin/remove-holiday', 'Expired Holidays Removal')}
-                    className="mt-4 p-2 bg-red-800/50 hover:bg-red-800/70 rounded-lg w-full text-center text-sm text-red-300 border border-red-600"
-                  >
-                    Remove Expired Holidays
-                  </button>
-                </div>
-
-                <div className="border-t border-gray-600 pt-6">
-                  <h2 className="text-xl font-bold mb-4">Performance Reviews 🏆</h2>
-                  <button onClick={fetchWinterPerformance} className="p-3 bg-gray-700 hover:bg-gray-600 rounded-lg w-full text-left flex justify-between items-center">
-                    <span>Fetch All Winter Semesters Performance</span>
-                    <span className="material-symbols-outlined text-sm">arrow_forward</span>
-                  </button>
-                </div>
-
-                <div className="border-t border-gray-600 pt-6">
-                  <h2 className="text-xl font-bold mb-4">Employee Replacement (Manual) 🔄</h2>
-                  <p className="text-sm text-gray-400 mb-3">Manually replace one employee with another for a given period.</p>
-                  <div className="p-4 bg-gray-900/50 rounded-xl border border-gray-600 space-y-3">
-                    <input type="number" placeholder="Employee 1 ID (to be replaced)" className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-white" />
-                    <input type="number" placeholder="Employee 2 ID (replacement)" className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-white" />
-                    <div className="flex gap-2">
-                      <input type="date" placeholder="From Date" className="w-1/2 bg-gray-800 border border-gray-700 rounded p-2 text-white" />
-                      <input type="date" placeholder="To Date" className="w-1/2 bg-gray-800 border border-gray-700 rounded p-2 text-white" />
-                    </div>
-                    <button onClick={() => handleAction('Replacement logic triggered.')} className="bg-orange-600 hover:bg-orange-500 text-white px-6 py-2 rounded-lg w-full">
-                      Replace Employee
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
+      {/* Tab Content */}
+      <div className="bg-gray-800/30 rounded-xl p-6 border border-gray-700">
+        {activeTab === 'employees' && renderEmployeesTab()}
+        {activeTab === 'attendance' && renderAttendanceTab()}
+        {activeTab === 'holidays' && renderHolidaysTab()}
+        {activeTab === 'general' && renderGeneralTab()}
       </div>
     </div>
   );

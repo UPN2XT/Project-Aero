@@ -1,7 +1,6 @@
 // AcademicDashboard.tsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { authenticatedFetch } from "../api/apiService";
-import { MOCK_LEAVES } from "../types";
 
 type AcademicView = "leaves" | "info" | "dean";
 
@@ -9,18 +8,37 @@ interface AcademicDashboardProps {
   onLogout: () => void;
 }
 
+// Types for Dean approval queue (matches backend Leave DTO from HR)
+interface PendingLeaveApproval {
+  requestId: number;
+  empId: number;
+  type: string;
+  dateOfRequest: string;
+  status: string;
+}
+
 const USER_ID = Number(localStorage.getItem("userId")) || 1;
 const CURRENT_SEMESTER = "W26";
+
+// Auth headers helper
+const getAuthHeaders = (): HeadersInit => {
+  const token = localStorage.getItem('jwtToken');
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+  };
+};
 
 export const AcademicDashboard: React.FC<AcademicDashboardProps> = ({ onLogout }) => {
   // === UI View State ===
   const [view, setView] = useState<AcademicView>("leaves");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // === Form State ===
   const [selectedLeaveType, setSelectedLeaveType] = useState("Annual Leave");
   const [replacementIdInput, setReplacementIdInput] = useState("");
-  
+
   // File Upload State
   const [uploadedFile, setUploadedFile] = useState<string | null>(null);
   const [uploadedFileName, setUploadedFileName] = useState("");
@@ -30,6 +48,10 @@ export const AcademicDashboard: React.FC<AcademicDashboardProps> = ({ onLogout }
   const [performance, setPerformance] = useState<any>({});
   const [attendance, setAttendance] = useState<any[]>([]);
   const [deductions, setDeductions] = useState<any[]>([]);
+
+  // === Dean Tab State ===
+  const [pendingApprovals, setPendingApprovals] = useState<PendingLeaveApproval[]>([]);
+  const [deanReplacementId, setDeanReplacementId] = useState<string>("");
 
   // === API Helper ===
   const handleFetch = async (endpoint: string, payload?: any) => {
@@ -79,11 +101,11 @@ export const AcademicDashboard: React.FC<AcademicDashboardProps> = ({ onLogout }
   const handleApply = async (e: React.FormEvent) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget as HTMLFormElement);
-    
+
     // Extract common fields
     const startDate = formData.get("startDate") as string;
     const endDate = formData.get("endDate") as string;
-    
+
     let endpoint = "";
     let payload: any = {};
 
@@ -92,19 +114,19 @@ export const AcademicDashboard: React.FC<AcademicDashboardProps> = ({ onLogout }
       case "Annual Leave":
         if (!replacementIdInput) return alert("Replacement ID is required.");
         endpoint = "/employee/submit/annual";
-        payload = { 
-          start: startDate, 
-          end: endDate, 
-          replacementID: Number(replacementIdInput) 
+        payload = {
+          start: startDate,
+          end: endDate,
+          replacementID: Number(replacementIdInput)
         };
         break;
 
       case "Accidental Leave":
         endpoint = "/employee/submit/accidental";
-        payload = { 
-          start: startDate, 
-          end: endDate, 
-          empId: USER_ID 
+        payload = {
+          start: startDate,
+          end: endDate,
+          empId: USER_ID
         };
         break;
 
@@ -169,9 +191,39 @@ export const AcademicDashboard: React.FC<AcademicDashboardProps> = ({ onLogout }
     if (data) setLeaveStatus(data);
   };
 
-  const fetchPendingApprovals = async () => {
-    setLeaveStatus(MOCK_LEAVES.filter((l) => l.status === "Pending"));
-  };
+  // Fetch pending approvals from HR API (Dean/Upper Board uses same endpoint)
+  const fetchPendingApprovals = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch('/api/hr/approvals/get-all', {
+        method: 'POST',
+        headers: getAuthHeaders(),
+      });
+
+      if (response.ok) {
+        const data: PendingLeaveApproval[] = await response.json();
+        // Filter only Annual and Unpaid leaves (Dean can only approve these)
+        const deanApprovals = data.filter(
+          (leave) =>
+            leave.type?.toLowerCase().includes('annual') ||
+            leave.type?.toLowerCase().includes('unpaid')
+        );
+        setPendingApprovals(deanApprovals);
+      } else if (response.status === 401) {
+        setError('Session expired. Please log in again.');
+        onLogout();
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        setError(`Failed to fetch approvals: ${errorData.message || response.statusText}`);
+      }
+    } catch (err) {
+      console.error('Network error fetching approvals:', err);
+      setError('Network error. Please check your connection.');
+    } finally {
+      setLoading(false);
+    }
+  }, [onLogout]);
 
   const fetchInfoData = async () => {
     const perfData = await handleFetch("/employee/my-performance", { sem: CURRENT_SEMESTER });
@@ -184,20 +236,48 @@ export const AcademicDashboard: React.FC<AcademicDashboardProps> = ({ onLogout }
     if (attendanceData) setAttendance(attendanceData);
   };
 
-  const handleDeanApproval = async (requestID: number, leaveType: string, action: "Approve" | "Reject") => {
-    let endpoint = "";
-    if (leaveType.includes("Annual")) endpoint = "/employee/upperboard/approve/annual";
-    else if (leaveType.includes("Unpaid")) endpoint = "/employee/upperboard/approve/unpaid";
-    else return alert(`Approval unsupported for ${leaveType}.`);
+  // Dean approval handler - uses Employee API for upperboard approval
+  const handleDeanApproval = async (requestID: number, leaveType: string, replacementId?: number) => {
+    setLoading(true);
+    setError(null);
 
-    if (action === "Approve") {
-      const result = await handleFetch(endpoint, { requestId: requestID, replacmentId: 0 });
-      if (result) {
-        alert(`Approved Request ${requestID}.`);
-        fetchPendingApprovals();
-      }
+    // Determine endpoint based on leave type
+    let endpoint = "";
+    if (leaveType.toLowerCase().includes("annual")) {
+      endpoint = "/api/employee/upperboard/approve/annual";
+    } else if (leaveType.toLowerCase().includes("unpaid")) {
+      endpoint = "/api/employee/upperboard/approve/unpaid";
     } else {
-      alert(`Rejected Request ${requestID}.`);
+      setError(`Dean approval not supported for ${leaveType}. Only Annual and Unpaid leaves can be processed.`);
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          requestId: requestID,
+          replacmentId: replacementId || null
+        }),
+      });
+
+      if (response.ok) {
+        alert(`Leave request #${requestID} approved successfully!`);
+        fetchPendingApprovals(); // Refresh the list
+      } else if (response.status === 401) {
+        setError('Session expired. Please log in again.');
+        onLogout();
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        setError(`Failed to approve request: ${errorData.message || response.statusText}`);
+      }
+    } catch (err) {
+      console.error('Network error processing approval:', err);
+      setError('Network error. Please check your connection.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -206,7 +286,7 @@ export const AcademicDashboard: React.FC<AcademicDashboardProps> = ({ onLogout }
     if (view === "leaves") fetchLeavesStatus();
     else if (view === "info") fetchInfoData();
     else if (view === "dean") fetchPendingApprovals();
-  }, [view]);
+  }, [view, fetchPendingApprovals]);
 
   // === Render Helpers ===
   const performanceScore = performance?.rating ? (performance.rating >= 4 ? "A-" : "B+") : "N/A";
@@ -237,11 +317,10 @@ export const AcademicDashboard: React.FC<AcademicDashboardProps> = ({ onLogout }
             <button
               key={tab}
               onClick={() => setView(tab as AcademicView)}
-              className={`pb-2 px-1 capitalize ${
-                view === tab 
-                ? "text-cyan-400 border-b-2 border-cyan-400" 
+              className={`pb-2 px-1 capitalize ${view === tab
+                ? "text-cyan-400 border-b-2 border-cyan-400"
                 : "text-gray-400 hover:text-white"
-              }`}
+                }`}
             >
               {tab === 'leaves' ? 'Leaves & Requests' : tab === 'info' ? 'My Performance' : 'Dean Controls'}
             </button>
@@ -259,7 +338,7 @@ export const AcademicDashboard: React.FC<AcademicDashboardProps> = ({ onLogout }
               <div>
                 <h3 className="text-xl font-bold mb-4 text-white">Apply for Leave</h3>
                 <form onSubmit={handleApply} className="space-y-4">
-                  
+
                   {/* Leave Type Selector */}
                   <div>
                     <label className="text-sm text-gray-400">Type</label>
@@ -414,7 +493,7 @@ export const AcademicDashboard: React.FC<AcademicDashboardProps> = ({ onLogout }
                     leaveStatus.map((l: any, idx: number) => {
                       const status = l.finalApprovalStatus || l.status || "Pending";
                       const statusClass = status === "Approved" ? "bg-green-500/20 text-green-300" : status === "Rejected" ? "bg-red-500/20 text-red-300" : "bg-yellow-500/20 text-yellow-300";
-                      
+
                       return (
                         <div key={idx} className="bg-gray-900/50 p-3 rounded-lg border border-gray-700 flex justify-between items-center hover:bg-gray-900 transition">
                           <div>
@@ -466,29 +545,154 @@ export const AcademicDashboard: React.FC<AcademicDashboardProps> = ({ onLogout }
           {/* ===== VIEW: DEAN ===== */}
           {view === "dean" && (
             <div>
-              <div className="mb-4 p-4 bg-yellow-900/20 border border-yellow-700/50 rounded-lg flex items-center gap-3">
-                 <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
-                 <p className="text-yellow-200 text-sm">Restricted Area: Dean Authorization Required</p>
+              {/* Header Section */}
+              <div className="mb-6 p-4 bg-yellow-900/20 border border-yellow-700/50 rounded-lg flex items-center gap-3">
+                <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
+                <div>
+                  <p className="text-yellow-200 text-sm font-medium">Restricted Area: Dean Authorization Required</p>
+                  <p className="text-yellow-200/60 text-xs mt-1">Process Annual and Unpaid leave requests from your department</p>
+                </div>
               </div>
-              
+
+              {/* Error Display */}
+              {error && (
+                <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-300 text-sm">
+                  {error}
+                </div>
+              )}
+
+              {/* Pending Approvals Section */}
               <div className="space-y-4">
-                <h3 className="font-bold text-lg text-white">Pending Approvals Queue</h3>
-                {leaveStatus.filter(l => (l.finalApprovalStatus || l.status) === "Pending").length === 0 ? (
-                  <p className="text-gray-500 italic">No pending items.</p>
+                <div className="flex justify-between items-center">
+                  <h3 className="font-bold text-lg text-white">Pending Leave Approvals</h3>
+                  <button
+                    onClick={fetchPendingApprovals}
+                    className="text-xs bg-cyan-600/20 text-cyan-400 px-3 py-1.5 rounded hover:bg-cyan-600/30 transition"
+                  >
+                    Refresh List
+                  </button>
+                </div>
+
+                {/* Stats Summary */}
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-700 text-center">
+                    <p className="text-gray-400 text-xs">Pending Annual</p>
+                    <p className="text-xl font-bold text-cyan-400 mt-1">
+                      {pendingApprovals.filter(a => a.type?.toLowerCase().includes('annual')).length}
+                    </p>
+                  </div>
+                  <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-700 text-center">
+                    <p className="text-gray-400 text-xs">Pending Unpaid</p>
+                    <p className="text-xl font-bold text-orange-400 mt-1">
+                      {pendingApprovals.filter(a => a.type?.toLowerCase().includes('unpaid')).length}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Approvals List */}
+                {pendingApprovals.length === 0 ? (
+                  <div className="text-center py-12 bg-gray-900/30 rounded-lg border border-gray-700">
+                    <div className="text-4xl mb-3">✓</div>
+                    <p className="text-gray-400">No pending approvals</p>
+                    <p className="text-gray-500 text-sm mt-1">All leave requests have been processed</p>
+                  </div>
                 ) : (
-                  leaveStatus.filter(l => (l.finalApprovalStatus || l.status) === "Pending").map((l: any) => (
-                    <div key={l.requestId || l.id} className="flex justify-between items-center bg-gray-900 p-4 rounded-lg border border-gray-600">
-                      <div>
-                        <p className="font-bold text-gray-200">{l.emp || `Employee ${l.employeeID}`}</p>
-                        <p className="text-xs text-gray-400">{l.type || "Annual Leave"}</p>
-                      </div>
-                      <div className="flex gap-2">
-                        <button onClick={() => handleDeanApproval(l.requestId, l.type, 'Approve')} className="text-xs bg-green-600 hover:bg-green-500 text-white px-3 py-1.5 rounded transition">Approve</button>
-                        <button onClick={() => handleDeanApproval(l.requestId, l.type, 'Reject')} className="text-xs bg-red-600 hover:bg-red-500 text-white px-3 py-1.5 rounded transition">Reject</button>
-                      </div>
-                    </div>
-                  ))
+                  <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2">
+                    {pendingApprovals.map((leave) => {
+                      const isAnnual = leave.type?.toLowerCase().includes('annual');
+                      const typeBadgeClass = isAnnual
+                        ? 'bg-cyan-500/20 text-cyan-400'
+                        : 'bg-orange-500/20 text-orange-400';
+
+                      return (
+                        <div
+                          key={leave.requestId}
+                          className="bg-gray-900/50 p-4 rounded-lg border border-gray-700 hover:border-gray-600 transition"
+                        >
+                          <div className="flex justify-between items-start mb-3">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className={`text-xs px-2 py-0.5 rounded ${typeBadgeClass}`}>
+                                  {leave.type || 'Leave'}
+                                </span>
+                                <span className="text-gray-500 text-xs">#{leave.requestId}</span>
+                              </div>
+                              <p className="text-white font-medium mt-1">Employee ID: {leave.empId}</p>
+                              <p className="text-gray-400 text-xs mt-1">
+                                Requested: {leave.dateOfRequest || 'N/A'}
+                              </p>
+                            </div>
+                            <span className="text-xs px-2 py-1 rounded bg-yellow-500/20 text-yellow-300">
+                              {leave.status || 'Pending'}
+                            </span>
+                          </div>
+
+                          {/* Only show approval controls if status is Pending */}
+                          {(leave.status?.toLowerCase() === 'pending' || !leave.status) && (
+                            <>
+                              {/* Replacement ID Input for Annual Leave */}
+                              {isAnnual && (
+                                <div className="mb-3">
+                                  <label className="text-xs text-gray-400 block mb-1">
+                                    Replacement Employee ID (optional)
+                                  </label>
+                                  <input
+                                    type="number"
+                                    placeholder="Enter replacement ID..."
+                                    className="w-full bg-gray-800 border border-gray-600 rounded p-2 text-white text-sm focus:border-cyan-500 outline-none"
+                                    onChange={(e) => setDeanReplacementId(e.target.value)}
+                                  />
+                                </div>
+                              )}
+
+                              {/* Action Button */}
+                              <button
+                                onClick={() => handleDeanApproval(
+                                  leave.requestId,
+                                  leave.type || '',
+                                  deanReplacementId ? Number(deanReplacementId) : undefined
+                                )}
+                                disabled={loading}
+                                className="w-full text-sm bg-green-600 hover:bg-green-500 disabled:bg-green-600/50 disabled:cursor-not-allowed text-white py-2 rounded font-medium transition flex items-center justify-center gap-2"
+                              >
+                                {loading ? (
+                                  <>
+                                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                    Processing...
+                                  </>
+                                ) : (
+                                  <>
+                                    <span>✓</span> Approve Leave Request
+                                  </>
+                                )}
+                              </button>
+                            </>
+                          )}
+
+                          {/* Show processed status message if not pending */}
+                          {leave.status && leave.status.toLowerCase() !== 'pending' && (
+                            <div className={`text-center py-2 rounded text-sm ${leave.status.toLowerCase() === 'approved'
+                                ? 'bg-green-500/10 text-green-400'
+                                : 'bg-red-500/10 text-red-400'
+                              }`}>
+                              Already {leave.status}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 )}
+
+                {/* Information Note */}
+                <div className="mt-6 p-4 bg-gray-900/30 rounded-lg border border-gray-700">
+                  <h4 className="text-gray-300 font-medium text-sm mb-2">📋 Dean Approval Guidelines</h4>
+                  <ul className="text-gray-400 text-xs space-y-1">
+                    <li>• <strong className="text-cyan-400">Annual Leave:</strong> Requires HR approval first. You can optionally assign a replacement employee.</li>
+                    <li>• <strong className="text-orange-400">Unpaid Leave:</strong> Employee's annual balance must be exhausted. Maximum 30 days duration.</li>
+                    <li>• Approvals are final and will update the employee's leave records immediately.</li>
+                  </ul>
+                </div>
               </div>
             </div>
           )}
