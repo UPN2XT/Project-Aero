@@ -307,18 +307,6 @@ export const AcademicDashboard: React.FC<AcademicDashboardProps> = ({ onLogout }
     setLoading(true);
     setError(null);
 
-    // TODO: API endpoint not ready yet - showing fake success for now
-    // Simulate API delay
-    setTimeout(() => {
-      showSuccess(`Performance evaluation submitted for Employee #${evalEmployeeId}!`);
-      // Reset form
-      setEvalEmployeeId("");
-      setEvalRating(3);
-      setEvalComment("");
-      setLoading(false);
-    }, 1000);
-
-    /* COMMENTED OUT UNTIL API IS READY
     try {
       const response = await fetch('/api/employee/dean-hr-evaluation', {
         method: 'POST',
@@ -350,7 +338,6 @@ export const AcademicDashboard: React.FC<AcademicDashboardProps> = ({ onLogout }
     } finally {
       setLoading(false);
     }
-    */
   };
 
 
