@@ -1,21 +1,24 @@
-# USE THIS IMAGE: Eclipse Temurin is the standard replacement for OpenJDK
 FROM eclipse-temurin:25-jdk
 
-# Set work directory
 WORKDIR /app
 
-# Copy Maven wrapper and Project file
-COPY .mvn/ .mvn
-COPY mvnw pom.xml ./
+# Copy Maven wrapper AND its config (this must be atomic)
+COPY mvnw ./
+COPY .mvn .mvn
+COPY pom.xml ./
 
-# Fix permission for the Maven wrapper
+# Fix permissions
 RUN chmod +x mvnw
 
-# Download dependencies
-RUN ./mvnw dependency:go-offline
+# Verify Java & Maven early (optional but great for debugging)
+RUN java -version
+RUN ./mvnw -v
 
-# Copy the source code
-COPY src ./src
+# Force TLS 1.2+ and download dependencies
+RUN ./mvnw -Dhttps.protocols=TLSv1.2 dependency:go-offline
 
-# Start the app
+# Copy the rest of the project
+COPY src src
+
+# Run the app
 CMD ["./mvnw", "spring-boot:run", "-Dspring-boot.run.profiles=docker"]

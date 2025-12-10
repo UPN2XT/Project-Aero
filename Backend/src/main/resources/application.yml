@@ -1,0 +1,39 @@
+spring:
+  h2:
+    console:
+      enabled: false
+  application:
+    name: University-HR-ManagementSystem
+  datasource:
+    # Update url with your specific database name
+    url: jdbc:sqlserver://localhost:1433;databaseName=University_HR_ManagementSystem;encrypt=true;trustServerCertificate=true
+    username: sa
+    password: ${DATABASE_PASSWORD}
+    driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
+
+  sql:
+    init:
+      separator: GO
+      # Ensures the script runs on startup
+      mode: always
+      # Continue even if a drop fails (useful for your dropAllTables logic)
+      continue-on-error: true
+
+security:
+  jwt:
+    # Use a strong, long random string here (at least 32 characters/256 bits)
+    secret-key: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+    # If you have an expiration setting, check if it's needed too:
+    expiration-time: 3600000
+
+server:
+  port: 8085
+
+logging:
+  level:
+    org.springframework.jdbc.datasource.init: DEBUG
+    org.springframework.jdbc.datasource.init.ScriptUtils: DEBUG
+
+springdoc:
+    swagger-ui:
+        path=/docs
