@@ -1,0 +1,27 @@
+Project AERO — Login Information
+
+Seeded accounts (Employee ID | Email | Password | Department | Roles)
+
+1 | jack.john@guc.edu.eg | 123 | MET | Teaching Assistant
+2 | ahmed.zaki@guc.edu.eg | 345 | BI | Teaching Assistant
+3 | sarah.sabry@guc.edu.eg | 567 | MET | Lecturer
+4 | ahmed.helmy@guc.edu.eg | 908 | HR | HR_Representative_BI
+5 | menna.shalaby@guc.edu.eg | 670 | HR | HR_Representative_MET
+6 | mohamed.ahmedy@guc.edu.eg | 9087 | BI | Lecturer
+7 | esraa.ahmedy@guc.edu.eg | 5690 | Medical | Medical Doctor
+8 | magy.zaki@guc.edu.eg | 3790 | BI | Teaching Assistant
+9 | amr.diab@guc.edu.eg | 8954 | MET | Teaching Assistant
+10 | marwan.Khaled@guc.edu.eg | 9023 | HR | HR Manager
+11 | hazem.ali@guc.edu.eg | h@123 | MET | Dean, Lecturer
+12 | hadeel.adel@guc.edu.eg | ha@123 | MET | Lecturer, Vice Dean
+13 | ali.mohamed@guc.edu.eg | am@123 | (null) | Dean, Lecturer
+14 | donia.tarek@guc.edu.eg | dt@123 | (null) | Lecturer, Vice Dean
+15 | karim.abdelaziz@guc.edu.eg | ka@123 | MET | President
+16 | ghada.adel@guc.edu.eg | ga@123 | BI | Vice President
+
+Suggested UI role mapping:
+- HR: IDs 4, 5, 10 (example: select HR, use ID 4 / password 908)
+- Academic: IDs 1,2,3,6,7,8,9,11,12,13,14 (example: select Academic, ID 3 / password 567)
+- Admin: IDs 15,16 or HR Manager (ID 10) (example: select Admin, ID 15 / password ka@123)
+
+Note: These credentials come from the local seeded `schema.sql`. Do not publish these in production.

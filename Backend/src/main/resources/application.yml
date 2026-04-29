@@ -8,7 +8,7 @@ spring:
     # Update url with your specific database name
     url: jdbc:sqlserver://localhost:1433;databaseName=University_HR_ManagementSystem;encrypt=true;trustServerCertificate=true
     username: sa
-    password: ${DATABASE_PASSWORD}
+    password: YourStrong@Passw0rd
     driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
 
   sql:

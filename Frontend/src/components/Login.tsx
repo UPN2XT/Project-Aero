@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Shield, User, Lock, LogIn, Building2, GraduationCap, Users, Sparkles } from 'lucide-react';
 import type { UserRole } from '../types';
 import { showError } from '../utils/toast';
+import api from '../api';
 
 interface LoginProps {
   onLogin: (role: UserRole) => void;
@@ -64,55 +65,51 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
     let endpoint = '';
 
-    if (role === 'HR' || role === 'Admin') {
+    // HR users must use the HR login validation which checks dept_name = 'HR'.
+    // Admin accounts (executives) are seeded in other departments, so use
+    // the general employee login endpoint for Admin role.
+    if (role === 'HR') {
       endpoint = '/api/auth/login/hr';
+    } else if (role === 'Admin') {
+      endpoint = '/api/auth/login/employee';
     } else {
       endpoint = '/api/auth/login/employee';
     }
 
     try {
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          id: Number(username),
-          password,
-        }),
+      // Use central axios instance which already points to backend and attaches JWT
+      const url = endpoint.replace('/api', ''); // endpoint is '/api/auth/..' -> '/auth/...'
+      const response = await api.post(url, {
+        id: Number(username),
+        password,
       });
 
-      if (response.ok) {
-        const token = await response.text();
+      // api.post will throw for non-2xx, so success means we have data
+      const token = response.data;
 
-        if (token && token.length > 10) {
-          localStorage.setItem('jwtToken', token);
-          localStorage.setItem('userRole', role as string);
-          localStorage.setItem('userId', username);
+      if (token && typeof token === 'string' && token.length > 10) {
+        localStorage.setItem('jwtToken', token);
+        localStorage.setItem('userRole', role as string);
+        localStorage.setItem('userId', username);
 
-          // Show success animation
-          setShowSuccess(true);
-          setTimeout(() => {
-            onLogin(role);
-          }, 1500);
-        } else {
-          setIsLoading(false);
-          showError("Login succeeded, but no authorization token received.");
-        }
+        // Show success animation
+        setShowSuccess(true);
+        setTimeout(() => {
+          onLogin(role);
+        }, 1500);
       } else {
         setIsLoading(false);
-        let message = 'Invalid credentials';
-        try {
-          const errorData = await response.json();
-          message = errorData.message || message;
-        } catch (e) {
-          message = `Authentication failed (Status ${response.status})`;
-        }
-        showError(`Login failed: ${message}`);
+        showError('Login succeeded, but no authorization token received.');
       }
-    } catch (error) {
+    } catch (error: any) {
       setIsLoading(false);
-      showError('A network error occurred. Please check the API server.');
+      if (error.response) {
+        const status = error.response.status;
+        const message = error.response.data?.message || error.response.statusText || 'Invalid credentials';
+        showError(`Login failed: ${message} (Status ${status})`);
+      } else {
+        showError('A network error occurred. Please check the API server.');
+      }
     }
   };
 
